@@ -8,6 +8,35 @@ from scipy.optimize import minimize
 from scipy import interpolate
 import pdb
 
+def air_to_vacuum(airwl,nouvconv=True):
+    """
+    Returns vacuum wavelength of the provided air wavelength array or scalar.
+    Good to ~ .0005 angstroms.
+
+    If nouvconv is True, does nothing for air wavelength < 2000 angstroms.
+    
+    Input must be in angstroms.
+    
+    Adapted from idlutils airtovac.pro, based on the IAU standard 
+    for conversion in Morton (1991 Ap.J. Suppl. 77, 119)
+    """
+    airwl = np.array(airwl,copy=False,dtype=float,ndmin=1)
+    isscal = airwl.shape == tuple()
+    if isscal:
+        airwl = airwl.ravel()
+    
+    #wavenumber squared
+    sig2 = (1e4/airwl)**2
+    
+    convfact = 1. + 6.4328e-5 + 2.94981e-2/(146. - sig2) +  2.5540e-4/( 41. - sig2)
+    newwl = airwl.copy() 
+    if nouvconv:
+        convmask = newwl>=2000
+        newwl[convmask] *= convfact[convmask]
+    else:
+        newwl[:] *= convfact
+    return newwl[0] if isscal else newwl
+
 def wavecalibrate(px,fx,stretch_est=None,shift_est=None):
     def prob1(x,x_p,F_p,w_m,F_m,st_es,sh_es):
         interp = interp1d(x_p*x[0]+x[1],F_p,bounds_error=False,fill_value=0)
@@ -29,6 +58,7 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None):
     fx = fx[::-1]
     fx = fx - np.min(fx)
     wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
+    wm = air_to_vacuum(wm)
 
     if stretch_est is None or stretch_est is not None:
         if stretch_est is not None:

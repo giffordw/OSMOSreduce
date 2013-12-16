@@ -19,6 +19,7 @@ import pdb
 from smooth import smooth
 from scipy.interpolate import interp1d
 from scipy.stats import pearsonr
+from scipy.stats import norm
 
 def getch():
     import tty, termios
@@ -39,11 +40,22 @@ def filter_image(img):
     img_cr[bad] = img_sm[bad]
     return img_cr
 
-pixscale = 0.273
+class EstimateHK:
+    def __init__(self,pspec):
+        self.pspec = pspec
+        self.cid = fig.canvas.mpl_connect('button_press_event',self.onclick)
+
+    def onclick(self,event):
+        print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
+        self.lam = event.xdata
+        plt.close()
+
+pixscale = 0.273 #pixel scale at for OSMOS
 xbin = 1
 ybin = 1
 yshift = 13.0
 wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
+wm = air_to_vacuum(wm)
 
 ###################
 #Define Cluster ID#
@@ -390,14 +402,17 @@ coeff0_2 = normal_type[0].header['COEFF0']
 coeff1_2 = normal_type[0].header['COEFF1']
 coeff0_3 = normal2_type[0].header['COEFF0']
 coeff1_3 = normal2_type[0].header['COEFF1']
-early_type_flux = early_type[0].data[0]
+early_type_flux = early_type[0].data[0]/signal.medfilt(early_type[0].data[0],171)
+#early_type_flux = signal.medfilt(early_type[0].data[0],171)
 normal_type_flux = normal_type[0].data[0]
 normal2_type_flux = normal2_type[0].data[0]
 early_type_wave = 10**(coeff0 + coeff1*np.arange(0,early_type_flux.size,1))
 normal_type_wave = 10**(coeff0 + coeff1*np.arange(0,normal_type_flux.size,1))
 normal2_type_wave = 10**(coeff0 + coeff1*np.arange(0,normal2_type_flux.size,1))
 
-ztest = np.linspace(0.01,0.5,10000)
+#flux shape correction
+w2,fc = np.loadtxt('fluxcorrect.tab',dtype='float',usecols=(0,1),unpack=True)
+flux_corr = interp1d(w2,fc)
 
 import matplotlib.pyplot as plt
 redshift_est = np.zeros(shift.size)
@@ -406,11 +421,29 @@ redshift_est3 = np.zeros(shift.size)
 cor = np.zeros(shift.size)
 cor2 = np.zeros(shift.size)
 cor3 = np.zeros(shift.size)
+sdss_elem,sdss_red = np.loadtxt(clus_id+'/sdssred.dat',dtype='float',usecols=(0,1),unpack=True)
+ztest = np.linspace(0.02,0.35,5000)
 for k in range(shift.size):
     #k = 19
-    corr_val = np.zeros(ztest.size)
+    if slit_type[str(k+1)] == 'g':
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        pspec, = ax.plot(wave[k],Flux_science[k])
+        HK_est = EstimateHK(pspec)
+        ax.set_xlim(3800,5500)
+        plt.show()
+        pre_lam_est = HK_est.lam
+        pre_z_est = pre_lam_est/3950.0 - 1.0
+    
+    if pre_z_est < 0.0:
+        pre_z_est = np.median(sdss_red)
+
+    corr_val_i = np.zeros(ztest.size)
     #corr_val2 = np.zeros(ztest.size)
     #corr_val3 = np.zeros(ztest.size)
+
+    Flux_sc = Flux_science[k]/signal.medfilt(Flux_science[k],171)
+    #Flux_sc = signal.medfilt(Flux_science[k],171)
     for i in range(ztest.size):
         z = ztest[i]
         wshift = early_type_wave*(1+z)
@@ -421,30 +454,47 @@ for k in range(shift.size):
         #wavediff3 = np.min(wshift3 - 3900)
         if wavediff < 0:
             wave_range = wave[k][np.where((wave[k]<4800)&(wave[k]>3900))]
-            Flux_range = Flux_science[k][np.where((wave[k]<4800)&(wave[k]>3900))]
+            Flux_range = Flux_sc[np.where((wave[k]<4800)&(wave[k]>3900))]
         else:
             wave_range = wave[k][np.where((wave[k]<4800+wavediff)&(wave[k]>3900+wavediff))]
-            Flux_range = Flux_science[k][np.where((wave[k]<4800+wavediff)&(wave[k]>3900+wavediff))]
+            Flux_range = Flux_sc[np.where((wave[k]<4800+wavediff)&(wave[k]>3900+wavediff))]
+        #wave_range =  wave[k][np.where((wave[k]<np.max(early_type_wave*(1+z)))&(wave[k]>np.min(w2))&(wave[k]>np.min(early_type_wave*(1+z)))&(wave[k]<np.max(w2)))]
+        #Flux_range = Flux_science[k][np.where((wave[k]<np.max(early_type_wave*(1+z)))&(wave[k]>np.min(w2))&(wave[k]>np.min(early_type_wave*(1+z)))&(wave[k]<np.max(w2)))]
+        Flux_range_corr = flux_corr(wave_range)
         inter = interp1d(wshift,early_type_flux)
         #inter2 = interp1d(wshift2,normal_type_flux)
         #inter3 = interp1d(wshift2,normal2_type_flux)
         et_flux_range = inter(wave_range)
         #nt_flux_range = inter2(wave_range)
         #nt2_flux_range = inter3(wave_range)
-        corr_val[i] = pearsonr(et_flux_range,Flux_range)[0]
+        corr_val_i[i] = pearsonr(et_flux_range,Flux_range)[0]
         #corr_val2[i] = pearsonr(nt_flux_range,Flux_range)[0]
         #corr_val3[i] = pearsonr(nt2_flux_range,Flux_range)[0]
+        '''
+        s = plt.figure()
+        ax = s.add_subplot(211)
+        ax1 = s.add_subplot(212)
+        ax.plot(wave_range,et_flux_range,'r',alpha=0.4)
+        ax.plot(wave_range,Flux_range,'b',alpha=0.4)
+        ax1.plot(ztest[:i+1],corr_val_i[:i+1])
+        plt.show()
+        '''
+
+    corr_val = (corr_val_i+1)/np.trapz((corr_val_i+1),ztest)
+    rv = norm(pre_z_est,0.04)
+    corr_val = corr_val * rv.pdf(ztest) 
     redshift_est[k] = (ztest[np.where((ztest>0.02)&(ztest<0.35))])[np.where(corr_val[np.where((ztest>0.02)&(ztest<0.35))] == np.max(corr_val[np.where((ztest>0.02)&(ztest<0.35))]))]
     #redshift_est2[k] = (ztest[np.where((ztest>0.05)&(ztest<0.15))])[np.where(corr_val2[np.where((ztest>0.05)&(ztest<0.15))] == np.max(corr_val2[np.where((ztest>0.05)&(ztest<0.15))]))]
     #redshift_est3[k] = (ztest[np.where((ztest>0.05)&(ztest<0.15))])[np.where(corr_val3[np.where((ztest>0.05)&(ztest<0.15))] == np.max(corr_val3[np.where((ztest>0.05)&(ztest<0.15))]))]
-    cor[k] = (corr_val[np.where((ztest>0.02)&(ztest<0.35))])[np.where(corr_val[np.where((ztest>0.02)&(ztest<0.35))] == np.max(corr_val[np.where((ztest>0.02)&(ztest<0.35))]))]
+    cor[k] = (corr_val_i[np.where((ztest>0.02)&(ztest<0.35))])[np.where(corr_val[np.where((ztest>0.02)&(ztest<0.35))] == np.max(corr_val[np.where((ztest>0.02)&(ztest<0.35))]))]
     #cor2[k] = (corr_val2[np.where((ztest>0.05)&(ztest<0.15))])[np.where(corr_val2[np.where((ztest>0.05)&(ztest<0.15))] == np.max(corr_val2[np.where((ztest>0.05)&(ztest<0.15))]))]
     #cor3[k] = (corr_val3[np.where((ztest>0.05)&(ztest<0.15))])[np.where(corr_val3[np.where((ztest>0.05)&(ztest<0.15))] == np.max(corr_val3[np.where((ztest>0.05)&(ztest<0.15))]))]
     #plt.plot(ztest,corr_val)
     #plt.show()
+    if k in sdss_elem.astype('int'):
+        print 'Estimate: %.3f'%(redshift_est[k]), 'SDSS: %.3f'%(sdss_red[np.where(sdss_elem==k)][0])
     print 'z found for galaxy '+str(k+1)+' of '+str(shift.size)
 
-sdss_elem,sdss_red = np.loadtxt(clus_id+'/sdssred.dat',dtype='float',usecols=(0,1),unpack=True)
 plt.plot(sdss_red,redshift_est[sdss_elem.astype('int')],'ro')
 #plt.plot(sdss_red,redshift_est2[sdss_elem.astype('int')],'bo')
 #plt.plot(sdss_red,redshift_est3[sdss_elem.astype('int')],'o',c='purple')
