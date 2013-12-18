@@ -480,7 +480,8 @@ for k in range(shift.size):
         plt.show()
         '''
 
-    corr_val = (corr_val_i+1)/np.trapz((corr_val_i+1),ztest)
+    corr_val = (corr_val_i[np.isfinite(corr_val_i)]+1)/np.trapz((corr_val_i[np.isfinite(corr_val_i)]+1),ztest[np.isfinite(corr_val_i)])
+    ztest = ztest[np.isfinite(corr_val_i)]
     rv = norm(pre_z_est,0.04)
     corr_val = corr_val * rv.pdf(ztest) 
     redshift_est[k] = (ztest[np.where((ztest>0.02)&(ztest<0.35))])[np.where(corr_val[np.where((ztest>0.02)&(ztest<0.35))] == np.max(corr_val[np.where((ztest>0.02)&(ztest<0.35))]))]
