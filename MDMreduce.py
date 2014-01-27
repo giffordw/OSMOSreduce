@@ -8,7 +8,7 @@ from ds9 import *
 import sys
 import re
 import subprocess
-import curses
+#import curses
 import copy
 import os
 import fnmatch
@@ -16,10 +16,10 @@ import time
 from testopt import *
 import pickle
 import pdb
-from smooth import smooth
 from scipy.interpolate import interp1d
 from scipy.stats import pearsonr
 from scipy.stats import norm
+from get_photoz import *
 
 def getch():
     import tty, termios
@@ -80,7 +80,7 @@ print 'Reducing cluster: ',clus_id
 ############################
 #Import Cluster .fits files#
 ############################
-image_file = 'mosaic_r_'+clus_id.split('0')[0]+clus_id.split('0')[-1]+'_image.fits' #define mosaic image filename
+image_file = 'mosaic_r_C4_'+clus_id[-4:].lstrip('0')+'_image.fits' #define mosaic image filename
 
 #import, clean, and add science fits files
 sciencefiles = np.array([])
@@ -152,12 +152,21 @@ for line in alltext:
         SLIT_X = np.append(SLIT_X,0.5*naxis1+np.float(Xmatch.group(1))*(11.528)/(pixscale))
     if Ymatch:
         SLIT_Y = np.append(SLIT_Y,0.5*naxis2+np.float(Ymatch.group(1))*(11.528)/(pixscale)+yshift)
+
 ###############################################################
+
+############################
+#Query SDSS for galaxy data#
+############################
+#returns a Pandas dataframe with columns
+#objID','SpecObjID','ra','dec','umag','gmag','rmag','imag','zmag','redshift','photo_z','extra'
+Gal_dat = query_galaxies(RA,DEC)
 
 ####################
 #Open images in ds9#
 ####################
 p = subprocess.Popen('ds9 '+clus_id+'/'+image_file+' -geometry 1200x900 -scale sqrt -scale mode zscale -fits '+clus_id+'/science/'+science_file,shell=True)
+#p = subprocess.Popen('ds9 '+clus_id+'/'+image_file+' -geometry 1200x900 -scale sqrt -scale mode zscale -fits '+clus_id+'/arcs/'+arcfiles[0],shell=True)
 time.sleep(3)
 print "Have the images loaded? (y/n)"
 while True: #check to see if images have loaded correctly
@@ -235,7 +244,7 @@ if reassign == 'n':
             if char.lower() in ("y","n"):
                 break
         good_spectra = np.append(good_spectra,char.lower())
-        newpos_str = d.get('regions info').split('\n')[4]
+        newpos_str = d.get('regions').split('\n')[4]
         newpos = re.search('box\(.*,(.*),.*,(.*),.*\)',newpos_str)
         FINAL_SLIT_X[i] = SLIT_X[i]
         FINAL_SLIT_Y[i] = newpos.group(1)
@@ -247,7 +256,6 @@ else:
     FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH = np.loadtxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',dtype='float',usecols=(0,1,2),unpack=True)
     good_spectra = np.loadtxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',dtype='string',usecols=(3,),unpack=True)
 ####################################################################
-
 #######################################
 #Reduction steps to prep science image#
 #######################################
@@ -392,7 +400,9 @@ else:
 #summed science slits + filtering to see spectra
 Flux_science = np.array([signal.medfilt(np.sum(scifits_c2.data[FINAL_SLIT_Y[i+1]-SLIT_WIDTH[i+1]/2.0:FINAL_SLIT_Y[i+1]+SLIT_WIDTH[i+1]/2.0,:],axis=0)[::-1],13) for i in range(stretch.size)])
 
-#Wavelength calibrate!
+####################
+#Redshift Calibrate#
+####################
 early_type = pyfits.open('spDR2-023.fit')
 normal_type = pyfits.open('spDR2-024.fit')
 normal2_type = pyfits.open('spDR2-025.fit')
@@ -421,14 +431,26 @@ redshift_est3 = np.zeros(shift.size)
 cor = np.zeros(shift.size)
 cor2 = np.zeros(shift.size)
 cor3 = np.zeros(shift.size)
-sdss_elem,sdss_red = np.loadtxt(clus_id+'/sdssred.dat',dtype='float',usecols=(0,1),unpack=True)
+try:
+    sdss_elem,sdss_red = np.loadtxt(clus_id+'/sdssred.dat',dtype='float',usecols=(0,1),unpack=True)
+except:
+    for i in range(RA.size-1):
+        print i,RA[i+1], DEC[i+1]
+    print 'Failed to load sdss spectra file', clus_id+'/sdssred.dat'
+    print 'Please visit http://cas.sdss.org/dr7/en/tools/chart/list.asp and copy the above RA/DEC into the upper left box.'
+    print 'Then create the file '+clus_id+'/sdssred.dat and fill with only galaxies with SDSS spectra.'
+    print 'To see which objects have spectra, check the "objects with spectra" box on the left side of the window'
+    print 'Remember that the element number begins with 0 in the first box, then increases left to right like a book.'
+    sys.exit()
 ztest = np.linspace(0.02,0.35,5000)
 for k in range(shift.size):
-    #k = 19
+    '''
     if slit_type[str(k+1)] == 'g':
         fig = plt.figure()
         ax = fig.add_subplot(111)
         pspec, = ax.plot(wave[k],Flux_science[k])
+        ax.axvline(3968.5*(1+np.median(sdss_red)),ls='--',alpha=0.7,c='orange')
+        ax.axvline(3933.7*(1+np.median(sdss_red)),ls='--',alpha=0.7,c='orange')
         HK_est = EstimateHK(pspec)
         ax.set_xlim(3800,5500)
         plt.show()
@@ -437,6 +459,8 @@ for k in range(shift.size):
     
     if pre_z_est < 0.0:
         pre_z_est = np.median(sdss_red)
+    '''
+    pre_z_est = np.median(sdss_red)
 
     corr_val_i = np.zeros(ztest.size)
     #corr_val2 = np.zeros(ztest.size)
@@ -492,14 +516,28 @@ for k in range(shift.size):
     #cor3[k] = (corr_val3[np.where((ztest>0.05)&(ztest<0.15))])[np.where(corr_val3[np.where((ztest>0.05)&(ztest<0.15))] == np.max(corr_val3[np.where((ztest>0.05)&(ztest<0.15))]))]
     #plt.plot(ztest,corr_val)
     #plt.show()
+
+    if slit_type[str(k+1)] == 'g':
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        pspec, = ax.plot(wave[k],Flux_science[k])
+        ax.axvline(3968.5*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
+        ax.axvline(3933.7*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
+        HK_est = EstimateHK(pspec)
+        ax.set_xlim(3800,5500)
+        plt.show()
+        pre_lam_est = HK_est.lam
+        pre_z_est = pre_lam_est/3950.0 - 1.0
+
     if k in sdss_elem.astype('int'):
         print 'Estimate: %.3f'%(redshift_est[k]), 'SDSS: %.3f'%(sdss_red[np.where(sdss_elem==k)][0])
     print 'z found for galaxy '+str(k+1)+' of '+str(shift.size)
-
+'''
 plt.plot(sdss_red,redshift_est[sdss_elem.astype('int')],'ro')
 #plt.plot(sdss_red,redshift_est2[sdss_elem.astype('int')],'bo')
 #plt.plot(sdss_red,redshift_est3[sdss_elem.astype('int')],'o',c='purple')
 plt.plot(sdss_red,sdss_red,'k')
+plt.savefig(clus_id+'/redshift_compare.png')
 plt.show()
 
 f = open(clus_id+'/estimated_redshifts.tab','w')
@@ -509,8 +547,10 @@ for k in range(redshift_est.size):
     f.write(DEC[k+1]+'\t')
     f.write(str(redshift_est[k])+'\t')
     if k in sdss_elem.astype('int'):
-        f.write(str(sdss_red[np.where(sdss_elem.astype('int')==k)])+'\t')
+        f.write(str(sdss_red[np.where(sdss_elem.astype('int')==k)][0])+'\t')
     else:
         f.write(str(0.000)+'\t')
     f.write('\n')
 f.close()
+'''
+
