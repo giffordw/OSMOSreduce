@@ -46,10 +46,10 @@ class EstimateHK:
         print 'Select redshift'
         #self.pspec = pspec
         #self.cid = fig.canvas.mpl_connect('button_press_event',self.onclick)
-        self.cid1 = fig.canvas.mpl_connect('key_press_event',self.on_key_press)
-        self.cid2 = fig.canvas.mpl_connect('key_release_event',self.on_key_release)
+        #self.cid1 = fig.canvas.mpl_connect('key_press_event',self.on_key_press)
+        #self.cid2 = fig.canvas.mpl_connect('key_release_event',self.on_key_release)
         self.cid3 = fig.canvas.mpl_connect('button_press_event',self.onclick)
-        self.shift_is_held = False
+        #self.shift_is_held = False
 
     def on_key_press(self,event):
         if event.key == 'shift':
@@ -61,12 +61,12 @@ class EstimateHK:
 
     def onclick(self,event):
         if event.button == 1:
-            if self.shift_is_held:
-                print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
-                self.lam = event.xdata
-                plt.close()
-            else:
-                plt.close()
+            #if self.shift_is_held:
+            #    print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
+            #    self.lam = event.xdata
+            #    plt.close()
+            #else:
+            plt.close()
         if event.button == 3:
             print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
             self.lam = event.xdata
@@ -565,7 +565,7 @@ for k in range(shift.size):
         #recalc_button.on_clicked(select_red)
         HK_est = EstimateHK(pspec)
         ax2.set_xlim(3800,5500)
-        plt.show(fig)
+        plt.show()
         try:
             pre_lam_est = HK_est.lam
             pre_z_est = pre_lam_est/3950.0 - 1.0
