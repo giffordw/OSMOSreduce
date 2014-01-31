@@ -44,11 +44,11 @@ def filter_image(img):
 class EstimateHK:
     def __init__(self,pspec):
         print 'Select redshift'
-        self.pspec = pspec
+        #self.pspec = pspec
         #self.cid = fig.canvas.mpl_connect('button_press_event',self.onclick)
-        fig.canvas.mpl_connect('key_press_event',self.on_key_press)
-        fig.canvas.mpl_connect('key_release_event',self.on_key_release)
-        fig.canvas.mpl_connect('button_press_event',self.onclick)
+        self.cid1 = fig.canvas.mpl_connect('key_press_event',self.on_key_press)
+        self.cid2 = fig.canvas.mpl_connect('key_release_event',self.on_key_release)
+        self.cid3 = fig.canvas.mpl_connect('button_press_event',self.onclick)
         self.shift_is_held = False
 
     def on_key_press(self,event):
@@ -546,7 +546,7 @@ for k in range(shift.size):
     '''
     if slit_type[str(k+1)] == 'g':
         fig = plt.figure()
-        ax = fig.add_subplot(111)
+        ax2 = fig.add_subplot(111)
         #plt.subplots_adjust(left=0.25)
         #keep_ax = plt.axes([0.05,0.7,0.13,0.1])
         #recalc_ax = plt.axes([0.05,0.3,0.13,0.1])
@@ -565,7 +565,7 @@ for k in range(shift.size):
         #recalc_button.on_clicked(select_red)
         HK_est = EstimateHK(pspec)
         ax2.set_xlim(3800,5500)
-        plt.show()
+        plt.show(fig)
         try:
             pre_lam_est = HK_est.lam
             pre_z_est = pre_lam_est/3950.0 - 1.0
