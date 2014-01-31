@@ -45,12 +45,32 @@ class EstimateHK:
     def __init__(self,pspec):
         print 'Select redshift'
         self.pspec = pspec
-        self.cid = fig.canvas.mpl_connect('button_press_event',self.onclick)
+        #self.cid = fig.canvas.mpl_connect('button_press_event',self.onclick)
+        fig.canvas.mpl_connect('key_press_event',self.on_key_press)
+        fig.canvas.mpl_connect('key_release_event',self.on_key_release)
+        fig.canvas.mpl_connect('button_press_event',self.onclick)
+        self.shift_is_held = False
+
+    def on_key_press(self,event):
+        if event.key == 'shift':
+            self.shift_is_held = True
+
+    def on_key_release(self, event):
+        if event.key == 'shift':
+            self.shift_is_held = False
 
     def onclick(self,event):
-        print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
-        self.lam = event.xdata
-        plt.close()
+        if event.button == 1:
+            if self.shift_is_held:
+                print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
+                self.lam = event.xdata
+                plt.close()
+            else:
+                plt.close()
+        if event.button == 3:
+            print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
+            self.lam = event.xdata
+            plt.close()
 
 pixscale = 0.273 #pixel scale at for OSMOS
 xbin = 1
@@ -525,23 +545,24 @@ for k in range(shift.size):
         #plt.show()
     '''
     if slit_type[str(k+1)] == 'g':
-        fig,ax2 = plt.subplots()
-        plt.subplots_adjust(left=0.25)
-        keep_ax = plt.axes([0.05,0.7,0.13,0.1])
-        recalc_ax = plt.axes([0.05,0.3,0.13,0.1])
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        #plt.subplots_adjust(left=0.25)
+        #keep_ax = plt.axes([0.05,0.7,0.13,0.1])
+        #recalc_ax = plt.axes([0.05,0.3,0.13,0.1])
         pspec, = ax2.plot(wave[k],Flux_science[k])
         ax2.axvline(3968.5*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
         ax2.axvline(3933.7*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
-        keep_button = Button(keep_ax,'Keep z', hovercolor='0.80')
-        recalc_button = Button(recalc_ax,'Recalc z', hovercolor='0.80')
-        def close_plots(event):
-            plt.close()
-        def select_red(event):
-            print 'test'
+        #keep_button = Button(keep_ax,'Keep z', hovercolor='0.80')
+        #recalc_button = Button(recalc_ax,'Recalc z', hovercolor='0.80')
+        #def close_plots(event):
+        #    plt.close()
+        #def select_red(event):
+        #    print 'test'
             #ax2.annotate('Click on image where HK lines look to be',xy=(0,1),xytext=(0.01,0.99),textcoords='figure fraction',horizontalalignment='left',verticalalignment='top')
-            HK_est = EstimateHK(pspec)
-        keep_button.on_clicked(close_plots)
-        recalc_button.on_clicked(select_red)
+        #    HK_est = EstimateHK(pspec)
+        #keep_button.on_clicked(close_plots)
+        #recalc_button.on_clicked(select_red)
         HK_est = EstimateHK(pspec)
         ax2.set_xlim(3800,5500)
         plt.show()
