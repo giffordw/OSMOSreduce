@@ -37,7 +37,7 @@ def air_to_vacuum(airwl,nouvconv=True):
         newwl[:] *= convfact
     return newwl[0] if isscal else newwl
 
-def wavecalibrate(px,fx,stretch_est=None,shift_est=None):
+def wavecalibrate(px,fx,stretch_est=None,shift_est=None,parnum=2):
     def prob1(x,x_p,F_p,w_m,F_m,st_es,sh_es):
         interp = interp1d(x_p*x[0]+x[1],F_p,bounds_error=False,fill_value=0)
         #interp = interpolate.splrep(x_p*x[0]+x[1],F_p,s=0)
@@ -45,16 +45,19 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None):
         else: P0 = 0.0
         if np.abs(st_es - x[0]) > 0.015: P1 = -np.inf
         else: P1 = 0.0
-        return np.sum(F_m[np.where((w_m>4300)&(w_m<5300))]+interp(w_m[np.where((w_m>4300)&(w_m<5300))])) + P0 + P1
+        return np.sum(F_m[np.where((w_m>4000)&(w_m<5300))]+interp(w_m[np.where((w_m>4000)&(w_m<5300))])) + P0 + P1
         #return np.sum(interp(w_m[np.where((w_m>4300)&(w_m<5300))])/F_m[np.where((w_m>4300)&(w_m<5300))])
         #return np.sum(F_m[np.where((w_m>4300)&(w_m<5300))]+interpolate.splev(w_m[np.where((w_m>4300)&(w_m<5300))],interp,der=0))
         #return spearmanr(F_m[np.where((w_m>4300)&(w_m<5300))],interp(w_m[np.where((w_m>4300)&(w_m<5300))]))[0] + P0 + P1 #+ np.sum(F_m[np.where((w_m>4300)&(w_m<5300))]/np.max(F_m[np.where((w_m>4300)&(w_m<5300))])+interp(w_m[np.where((w_m>4300)&(w_m<5300))])/np.max(interp(w_m[np.where((w_m>4300)&(w_m<5300))])))
-    def prob2(x,x_p,F_p,w_m,F_m,st):
-        interp = interp1d(x_p*st+x,F_p,bounds_error=False,fill_value=0)
-        #if x[0] > 1.0: P0 = 0.0
-        #if x[1] 
-        return np.sum(F_m[np.where((w_m>4300)&(w_m<5300))]+interp(w_m[np.where((w_m>4300)&(w_m<5300))]))
-        #return pearsonr(F_m[np.where((w_m>4300)&(w_m<5300))],interp(w_m[np.where((w_m>4300)&(w_m<5300))]))[0]
+    def prob2(x,x_p,F_p,w_m,F_m,st,sh_es):
+        interp = interp1d(x[0]*xp**2+x_p*x[1]+x[2],F_p,bounds_error=False,fill_value=0)
+        #interp = interpolate.splrep(x_p*x[0]+x[1],F_p,s=0)
+        if np.abs(sh_es - x[1]) > 5: P0 = -np.inf
+        else: P0 = 0.0
+        if np.abs(st_es - x[0]) > 0.005: P1 = -np.inf
+        else: P1 = 0.0
+        return np.sum(F_m[np.where((w_m>4000)&(w_m<5300))]+interp(w_m[np.where((w_m>4000)&(w_m<5300))])) + P0 + P1
+
     fx = fx[::-1]
     fx = fx - np.min(fx)
     wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
@@ -69,41 +72,44 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None):
             shift_0 = 0.0
         print stretch_0,shift_0
         stretch_est,shift_est = interactive_plot(px,fx,wm,fm,stretch_0,shift_0)
+    
+    if parnum == 2:
+        print 'Running linear fit'
+        ndim,nwalkers = 2,10
+        p0 = np.vstack((np.random.uniform(stretch_est-0.04,stretch_est+0.04,nwalkers),np.random.uniform(-10,10,nwalkers)+shift_est)).T
+        sampler = emcee.EnsembleSampler(nwalkers,ndim,prob1,args=[px,fx,wm,fm,stretch_est,shift_est])
+        print 'Stepping MCMC'
+        pos, prob, state = sampler.run_mcmc(p0,500)
+        sampler.reset()
+        sampler.run_mcmc(pos,3000,rstate0=state)
+        (n_stretch,bins_stretch) = np.histogram(sampler.flatchain[:,0],100)
+        midbins_stretch = (bins_stretch[:-1]+bins_stretch[1:])/2.0
+        max_stretch = midbins_stretch[np.where(n_stretch==np.max(n_stretch))]
+        (n_shift,bins_shift) = np.histogram(sampler.flatchain[:,1],100)
+        midbins_shift = (bins_shift[:-1]+bins_shift[1:])/2.0
+        max_shift = midbins_shift[np.where(n_shift==np.max(n_shift))]
+        print 'Shift:',max_shift,'Stretch:',max_stretch
 
-    ndim,nwalkers = 2,10
-    p0 = np.vstack((np.random.uniform(stretch_est-0.04,stretch_est+0.04,nwalkers),np.random.uniform(-10,10,nwalkers)+shift_est)).T
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob1,args=[px,fx,wm,fm,stretch_est,shift_est])
-    print 'Stepping MCMC'
-    pos, prob, state = sampler.run_mcmc(p0,500)
-    sampler.reset()
-    sampler.run_mcmc(pos,3000,rstate0=state)
-    (n_stretch,bins_stretch) = np.histogram(sampler.flatchain[:,0],100)
-    midbins_stretch = (bins_stretch[:-1]+bins_stretch[1:])/2.0
-    max_stretch = midbins_stretch[np.where(n_stretch==np.max(n_stretch))]
-    (n_shift,bins_shift) = np.histogram(sampler.flatchain[:,1],100)
-    midbins_shift = (bins_shift[:-1]+bins_shift[1:])/2.0
-    max_shift = midbins_shift[np.where(n_shift==np.max(n_shift))]
-    print max_shift,max_stretch
-    '''
-    ndim,nwalkers = 1,10
-    p0 = np.random.rand(nwalkers).reshape(nwalkers,-1)+max_shift
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,wm,fm,max_stretch[0]])
-    print 'Stepping MCMC'
-    pos, prob, state = sampler.run_mcmc(p0,200)
-    sampler.reset()
-    sampler.run_mcmc(pos,3000,rstate0=state)
-    (n_shift,bins_shift) = np.histogram(sampler.flatchain[:,0],25)
-    midbins_shift = (bins_shift[:-1]+bins_shift[1:])/2.0
-    max_shift = midbins_shift[np.where(n_shift==np.max(n_shift))]
-    print max_shift
-    '''
-    #pdb.set_trace()
-    '''
-    def opt(xs):
-        interp = interp1d(px*max_stretch+xs,fx,bounds_error=False,fill_value=0)
-        return -np.sum(fm[np.where((wm>4300)&(wm<5300))]+interp(wm[np.where((wm>4300)&(wm<5300))]))
-    scimin = minimize(opt,max_shift)
-    '''
+    if parnum == 3:
+        print 'Running quadratic fit'
+        ndim,nwalkers = 3,10
+        p0 = np.vstack((np.random.uniform(0.0,0.001,nwalkers),np.random.uniform(stretch_est-0.04,stretch_est+0.04,nwalkers),np.random.uniform(-10,10,nwalkers)+shift_est)).T
+        sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,wm,fm,stretch_est,shift_est])
+        print 'Stepping MCMC'
+        pos, prob, state = sampler.run_mcmc(p0,1000)
+        sampler.reset()
+        sampler.run_mcmc(pos,6000,rstate0=state)
+        (n_quad,bins_quad) = np.histogram(sampler.flatchain[:,0],100)
+        midbins_quad = (bins_quad[:-1]+bins_quad[1:])/2.0
+        max_quad = midbins_quad[np.where(n_quad==np.max(n_quad))]
+        (n_stretch,bins_stretch) = np.histogram(sampler.flatchain[:,1],100)
+        midbins_stretch = (bins_stretch[:-1]+bins_stretch[1:])/2.0
+        max_stretch = midbins_stretch[np.where(n_stretch==np.max(n_stretch))]
+        (n_shift,bins_shift) = np.histogram(sampler.flatchain[:,2],100)
+        midbins_shift = (bins_shift[:-1]+bins_shift[1:])/2.0
+        max_shift = midbins_shift[np.where(n_shift==np.max(n_shift))]
+        print 'Quad:',max_quad,'Shift:',max_shift,'Stretch:',max_stretch
+    
     xs = np.linspace(shift_est - 100.0,shift_est + 100.0,1000)
     xs2 = np.linspace(stretch_est - 0.05, stretch_est + 0.05,1000)
     test = np.zeros(1000)
@@ -122,10 +128,15 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None):
     #plt.axvline(scimin['x'],color='g')
     #plt.show()
     #pdb.set_trace()
+    if parnum == 3:
+        if max_quad.size > 1: max_quad = max_quad[np.floor(max_quad.size/2.0)]
     if max_stretch.size > 1: max_stretch = max_stretch[np.floor(max_stretch.size/2.0)]
     if max_shift.size > 1: max_shift = max_shift[np.floor(max_shift.size/2.0)]
-    
-    return (px*max_stretch+max_shift,fx,max_stretch,max_shift)#(px*max_stretch+scimin['x'],fx,max_stretch,scimin['x'])
+
+    if parnum == 2:
+        return (px*max_stretch+max_shift,fx,max_stretch,max_shift)#(px*max_stretch+scimin['x'],fx,max_stretch,scimin['x'])
+    if parnum == 3:
+        return (max_quad*px**2 + px*max_stretch + max_shift,fx,max_stretch,max_shift)#(px*max_stretch+scimin['x'],fx,max_stretch,scimin['x'])
 
 def interactive_plot(px,fx,wm,fm,stretch_0,shift_0):
     fig,ax = plt.subplots()
