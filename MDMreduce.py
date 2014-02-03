@@ -476,6 +476,7 @@ for k in range(shift.size):
             pre_lam_est = HK_est.lam
             pre_z_est = pre_lam_est/3950.0 - 1.0
             redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
+            print 'Using prior given by user'
         except:
             pass
 
