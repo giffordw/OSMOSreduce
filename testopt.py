@@ -172,7 +172,7 @@ def interactive_plot(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     close_button = Button(close_ax,'Close Plots', hovercolor='0.80')
 
     def update(val):
-        l.set_xdata(quad_0*px**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata((quad_0+fn_slide_quad.val)*px**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
         fig.canvas.draw_idle()
     def fineupdate(val):
         l.set_xdata((quad_0+fn_slide_quad.val)*px**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
@@ -190,7 +190,8 @@ def interactive_plot(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     plt.show()
     shift_est = slide_shift.val+fn_slide_shift.val
     stretch_est = slide_stretch.val+fn_slide_stretch.val
-    quad_est = 1e-5 + fn_slide_quad.val
+    quad_est = quad_0 + fn_slide_quad.val
+    print 'quad_est:',quad_est, 'stretch est:',stretch_est, 'shift est:',shift_est
     return stretch_est,shift_est,quad_est
 
 def interactive_plot_plus(px,fx,wm,fm,stretch_0,shift_0,quad_0):
@@ -257,6 +258,7 @@ def interactive_plot_plus(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     plt.show()
     shift_est = slide_shift.val+fn_slide_shift.val
     stretch_est = slide_stretch.val+fn_slide_stretch.val
+    print 'quad_0:',quad_0,'stretch_0:',stretch_est,'shift_0:',shift_est
     return (quad_0*px**2+px*stretch_est+shift_est,fx,stretch_est,shift_est)
 
 if __name__ == '__main__':
