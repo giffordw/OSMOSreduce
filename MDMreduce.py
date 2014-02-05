@@ -362,14 +362,14 @@ if os.path.isfile(clus_id+'/'+clus_id+'_stretchshift.tab'):
 if reassign == 'n':
     f = open(clus_id+'/'+clus_id+'_stretchshift.tab','w')
     f.write('#X_SLIT      Y_SLIT      SHIFT       STRETCH     WIDTH \n')
-    stretch,shift = np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1)
+    quad,stretch,shift = np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1)
     Flux = np.zeros((FINAL_SLIT_X.size-1,4064))
     calib_data = arcfits_c.data
     p_x = np.arange(0,4064,1)
     f_x = signal.medfilt(np.sum(calib_data[FINAL_SLIT_Y[1]-SLIT_WIDTH[1]:FINAL_SLIT_Y[1]+SLIT_WIDTH[1]/2.0,:],axis=0),5)
     d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[1])+' physical')
     d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[1])+' 4500 '+str(SLIT_WIDTH[1])+') #color=green highlite=1}')
-    wave[0],Flux[0],stretch[0],shift[0] = wavecalibrate(p_x,f_x)
+    wave[0],Flux[0],quad[0],stretch[0],shift[0] = wavecalibrate(p_x,f_x,parnum=2)
     '''
     plt.plot(wave[0],Flux[0])
     plt.plot(wm,fm/2.0,'ro')
@@ -378,7 +378,7 @@ if reassign == 'n':
     plt.xlim(4200,5200)
     plt.show()
     '''
-    wave[0],Flux[0],stretch[0],shift[0] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[0],shift[0])
+    wave[0],Flux[0],stretch[0],shift[0] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[0],shift[0],quad[0])
     f.write(str(FINAL_SLIT_X[1])+'\t')
     f.write(str(FINAL_SLIT_Y[1])+'\t')
     f.write(str(shift[0])+'\t')
@@ -393,7 +393,7 @@ if reassign == 'n':
         d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[i+1])+' physical')
         d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[i+1])+' 4500 '+str(SLIT_WIDTH[i+1])+') #color=green highlite=1}')
         print 'test',shift[i-1],stretch[i-1]
-        wave[i],Flux[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,stretch[i-1],shift[i-1]+(FINAL_SLIT_X[i+1]*stretch[0]-FINAL_SLIT_X[i]*stretch[i-1]))
+        wave[i],Flux[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,stretch[i-1],shift[i-1]+(FINAL_SLIT_X[i+1]*stretch[0]-FINAL_SLIT_X[i]*stretch[i-1]),quad[i-1])
         '''
         plt.plot(wave[i],Flux[i])
         plt.plot(wm,fm/2.0,'ro')
@@ -402,7 +402,7 @@ if reassign == 'n':
         plt.xlim(4200,5200)
         plt.show()
         '''
-        wave[i],Flux[i],stretch[i],shift[i] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[i],shift[i])
+        wave[i],Flux[i],stretch[i],shift[i] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[i],shift[i],quad[i])
         f.write(str(FINAL_SLIT_X[i+1])+'\t')
         f.write(str(FINAL_SLIT_Y[i+1])+'\t')
         f.write(str(shift[i])+'\t')
