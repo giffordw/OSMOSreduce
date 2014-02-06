@@ -79,6 +79,8 @@ yshift = 13.0
 wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
 wm = air_to_vacuum(wm)
 
+print 'This is the test'
+
 ###################
 #Define Cluster ID#
 ###################
