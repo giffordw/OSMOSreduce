@@ -361,7 +361,7 @@ if os.path.isfile(clus_id+'/'+clus_id+'_stretchshift.tab'):
     reassign = raw_input('Detected file with stretch and shift parameters for each spectra. Do you wish to use this (y) or remove and re-adjust (n)? ')
 if reassign == 'n':
     f = open(clus_id+'/'+clus_id+'_stretchshift.tab','w')
-    f.write('#X_SLIT      Y_SLIT      SHIFT       STRETCH     WIDTH \n')
+    f.write('#X_SLIT      Y_SLIT      SHIFT       STRETCH     QUAD  WIDTH \n')
     quad,stretch,shift = np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1)
     Flux = np.zeros((FINAL_SLIT_X.size-1,4064))
     calib_data = arcfits_c.data
@@ -383,11 +383,13 @@ if reassign == 'n':
     f.write(str(FINAL_SLIT_Y[1])+'\t')
     f.write(str(shift[0])+'\t')
     f.write(str(stretch[0])+'\t')
+    f.write(str(quad[0])+'\t')
     f.write(str(SLIT_WIDTH[1])+'\t')
     f.write('\n')
 
     for i in range(stretch.size-1):
         i += 1
+        print 'Calibrating',i,'of',stretch.size-1
         p_x = np.arange(0,4064,1)
         f_x = signal.medfilt(np.sum(calib_data[FINAL_SLIT_Y[i+1]-SLIT_WIDTH[i+1]/2.0:FINAL_SLIT_Y[i+1]+SLIT_WIDTH[i+1]/2.0,:],axis=0),5)
         d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[i+1])+' physical')
@@ -407,12 +409,13 @@ if reassign == 'n':
         f.write(str(FINAL_SLIT_Y[i+1])+'\t')
         f.write(str(shift[i])+'\t')
         f.write(str(stretch[i])+'\t')
+        f.write(str(quad[i])+'\t')
         f.write(str(SLIT_WIDTH[i+1])+'\t')
         f.write('\n')
         #if auto == 'n':
         #    wave,Flux,stretch,shift,auto = fitcheck(i,stretch,shift,wave,Flux)
 else:
-    xslit,yslit,shift,stretch,wd = np.loadtxt(clus_id+'/'+clus_id+'_stretchshift.tab',dtype='float',usecols=(0,1,2,3,4),unpack=True)
+    xslit,yslit,shift,stretch,quad,wd = np.loadtxt(clus_id+'/'+clus_id+'_stretchshift.tab',dtype='float',usecols=(0,1,2,3,4,5),unpack=True)
     FINAL_SLIT_X = np.append(FINAL_SLIT_X[0],xslit)
     FINAL_SLIT_Y = np.append(FINAL_SLIT_Y[0],yslit)
     SLIT_WIDTH = np.append(SLIT_WIDTH[0],wd)
@@ -421,6 +424,8 @@ else:
 
 #summed science slits + filtering to see spectra
 Flux_science = np.array([signal.medfilt(np.sum(scifits_c2.data[FINAL_SLIT_Y[i+1]-SLIT_WIDTH[i+1]/2.0:FINAL_SLIT_Y[i+1]+SLIT_WIDTH[i+1]/2.0,:],axis=0)[::-1],13) for i in range(stretch.size)])
+
+
 
 ####################
 #Redshift Calibrate#
@@ -446,7 +451,6 @@ normal2_type_wave = 10**(coeff0 + coeff1*np.arange(0,normal2_type_flux.size,1))
 w2,fc = np.loadtxt('fluxcorrect.tab',dtype='float',usecols=(0,1),unpack=True)
 flux_corr = interp1d(w2,fc)
 
-import matplotlib.pyplot as plt
 redshift_est = np.zeros(shift.size)
 redshift_est2 = np.zeros(shift.size)
 redshift_est3 = np.zeros(shift.size)
@@ -467,8 +471,10 @@ for k in range(shift.size):
         fig = plt.figure()
         ax2 = fig.add_subplot(111)
         pspec, = ax2.plot(wave[k],Flux_science[k])
-        ax2.axvline(3968.5*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
-        ax2.axvline(3933.7*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
+        ax2.axvline(3968.5*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
+        ax2.axvline(3933.7*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
+        ax2.axvline(4304.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
+        ax2.axvline(5175.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
         HK_est = EstimateHK(pspec)
         ax2.set_xlim(3800,5500)
         plt.show()
@@ -490,7 +496,7 @@ plt.plot(sdss_red,redshift_est[sdss_elem.astype('int')],'ro')
 plt.plot(sdss_red,sdss_red,'k')
 plt.savefig(clus_id+'/redshift_compare.png')
 plt.show()
-'''
+
 f = open(clus_id+'/estimated_redshifts.tab','w')
 f.write('#RA    DEC    Z_est    Z_sdss\n')
 for k in range(redshift_est.size):
@@ -503,5 +509,5 @@ for k in range(redshift_est.size):
         f.write(str(0.000)+'\t')
     f.write('\n')
 f.close()
-'''
+
 

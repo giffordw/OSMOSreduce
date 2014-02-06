@@ -168,7 +168,7 @@ def interactive_plot(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     slide_shift = Slider(axshift,'Shift',-4000.0,4000.0,valinit=shift_0)
     fn_slide_stretch = Slider(fn_axstretch, 'Fine Stretch',-0.05,0.05,valinit=fn_stretch_0)
     fn_slide_shift = Slider(fn_axshift,'Fine Shift',-200.0,200.0,valinit=fn_shift_0)
-    fn_slide_quad = Slider(fn_axquad,'Fine Quad',-2e-5,2e-5,valinit=fn_quad_0)
+    fn_slide_quad = Slider(fn_axquad,'Fine Quad',-4e-5,4e-5,valinit=fn_quad_0)
     close_button = Button(close_ax,'Close Plots', hovercolor='0.80')
 
     def update(val):
