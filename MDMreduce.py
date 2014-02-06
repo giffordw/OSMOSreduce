@@ -79,8 +79,6 @@ yshift = 13.0
 wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
 wm = air_to_vacuum(wm)
 
-print 'This is the test'
-
 ###################
 #Define Cluster ID#
 ###################
@@ -368,7 +366,7 @@ if reassign == 'n':
     Flux = np.zeros((FINAL_SLIT_X.size-1,4064))
     calib_data = arcfits_c.data
     p_x = np.arange(0,4064,1)
-    f_x = signal.medfilt(np.sum(calib_data[FINAL_SLIT_Y[1]-SLIT_WIDTH[1]:FINAL_SLIT_Y[1]+SLIT_WIDTH[1]/2.0,:],axis=0),5)
+    f_x = signal.medfilt(np.sum(calib_data[FINAL_SLIT_Y[1]-SLIT_WIDTH[1]/2.0:FINAL_SLIT_Y[1]+SLIT_WIDTH[1]/2.0,:],axis=0),5)
     d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[1])+' physical')
     d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[1])+' 4500 '+str(SLIT_WIDTH[1])+') #color=green highlite=1}')
     wave[0],Flux[0],quad[0],stretch[0],shift[0] = wavecalibrate(p_x,f_x,parnum=2)
