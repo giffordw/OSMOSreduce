@@ -260,19 +260,26 @@ if reassign == 'n':
         print 'Galaxy at ',RA[i],DEC[i]
         d.set('regions command {box(2000 '+str(SLIT_Y[i])+' 4500 40) #color=green highlite=1}')
         #raw_input('Once done: hit ENTER')
-        print 'Is this spectra good (y) or bad (n)?'
-        while True:
-            char = getch()
-            if char.lower() in ("y","n"):
-                break
-        good_spectra = np.append(good_spectra,char.lower())
-        newpos_str = d.get('regions').split('\n')[4]
-        newpos = re.search('box\(.*,(.*),.*,(.*),.*\)',newpos_str)
-        FINAL_SLIT_X[i] = SLIT_X[i]
-        FINAL_SLIT_Y[i] = newpos.group(1)
-        SLIT_WIDTH[i] = newpos.group(2)
+        if slit_type[str(i)] == 'g':
+            print 'Is this spectra good (y) or bad (n)?'
+            while True:
+                char = getch()
+                if char.lower() in ("y","n"):
+                    break
+            good_spectra = np.append(good_spectra,char.lower())
+            newpos_str = d.get('regions').split('\n')[4]
+            newpos = re.search('box\(.*,(.*),.*,(.*),.*\)',newpos_str)
+            FINAL_SLIT_X[i] = SLIT_X[i]
+            FINAL_SLIT_Y[i] = newpos.group(1)
+            SLIT_WIDTH[i] = newpos.group(2)
+        else:
+            good_spectra = np.append(good_spectra,'n')
+            FINAL_SLIT_X[i] = SLIT_X[i]
+            FINAL_SLIT_Y[i] = SLIT_Y[i]
+            SLIT_WIDTH[i] = 40
         print FINAL_SLIT_X[i],FINAL_SLIT_Y[i],SLIT_WIDTH[i]
         d.set('regions delete all')
+    print FINAL_SLIT_X
     np.savetxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',np.array(zip(FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH,good_spectra),dtype=[('float',float),('float2',float),('int',int),('str','|S1')]),delimiter='\t',fmt='%10.2f %10.2f %3d %s')
 else:
     FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH = np.loadtxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',dtype='float',usecols=(0,1,2),unpack=True)
@@ -366,19 +373,20 @@ if reassign == 'n':
     Flux = np.zeros((FINAL_SLIT_X.size-1,4064))
     calib_data = arcfits_c.data
     p_x = np.arange(0,4064,1)
-    f_x = signal.medfilt(np.sum(calib_data[FINAL_SLIT_Y[1]-SLIT_WIDTH[1]/2.0:FINAL_SLIT_Y[1]+SLIT_WIDTH[1]/2.0,:],axis=0),5)
-    d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[1])+' physical')
-    d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[1])+' 4500 '+str(SLIT_WIDTH[1])+') #color=green highlite=1}')
-    wave[0],Flux[0],quad[0],stretch[0],shift[0] = wavecalibrate(p_x,f_x,parnum=2)
-    '''
-    plt.plot(wave[0],Flux[0])
-    plt.plot(wm,fm/2.0,'ro')
-    for j in range(wm.size):
-        plt.axvline(wm[j],color='r')
-    plt.xlim(4200,5200)
-    plt.show()
-    '''
-    wave[0],Flux[0],stretch[0],shift[0] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[0],shift[0],quad[0])
+    if good_spectra[1]=='y':
+        f_x = signal.medfilt(np.sum(calib_data[FINAL_SLIT_Y[1]-SLIT_WIDTH[1]/2.0:FINAL_SLIT_Y[1]+SLIT_WIDTH[1]/2.0,:],axis=0),5)
+        d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[1])+' physical')
+        d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[1])+' 4500 '+str(SLIT_WIDTH[1])+') #color=green highlite=1}')
+        wave[0],Flux[0],quad[0],stretch[0],shift[0] = wavecalibrate(p_x,f_x,parnum=2)
+        '''
+        plt.plot(wave[0],Flux[0])
+        plt.plot(wm,fm/2.0,'ro')
+        for j in range(wm.size):
+            plt.axvline(wm[j],color='r')
+        plt.xlim(4200,5200)
+        plt.show()
+        '''
+        wave[0],Flux[0],stretch[0],shift[0] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[0],shift[0],quad[0])
     f.write(str(FINAL_SLIT_X[1])+'\t')
     f.write(str(FINAL_SLIT_Y[1])+'\t')
     f.write(str(shift[0])+'\t')
@@ -390,21 +398,22 @@ if reassign == 'n':
     for i in range(stretch.size-1):
         i += 1
         print 'Calibrating',i,'of',stretch.size-1
-        p_x = np.arange(0,4064,1)
-        f_x = signal.medfilt(np.sum(calib_data[FINAL_SLIT_Y[i+1]-SLIT_WIDTH[i+1]/2.0:FINAL_SLIT_Y[i+1]+SLIT_WIDTH[i+1]/2.0,:],axis=0),5)
-        d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[i+1])+' physical')
-        d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[i+1])+' 4500 '+str(SLIT_WIDTH[i+1])+') #color=green highlite=1}')
-        print 'test',shift[i-1],stretch[i-1]
-        wave[i],Flux[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,stretch[i-1],shift[i-1]+(FINAL_SLIT_X[i+1]*stretch[0]-FINAL_SLIT_X[i]*stretch[i-1]),quad[i-1])
-        '''
-        plt.plot(wave[i],Flux[i])
-        plt.plot(wm,fm/2.0,'ro')
-        for j in range(wm.size):
-            plt.axvline(wm[j],color='r')
-        plt.xlim(4200,5200)
-        plt.show()
-        '''
-        wave[i],Flux[i],stretch[i],shift[i] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[i],shift[i],quad[i])
+        if good_spectra[i+1] == 'y':
+            p_x = np.arange(0,4064,1)
+            f_x = signal.medfilt(np.sum(calib_data[FINAL_SLIT_Y[i+1]-SLIT_WIDTH[i+1]/2.0:FINAL_SLIT_Y[i+1]+SLIT_WIDTH[i+1]/2.0,:],axis=0),5)
+            d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[i+1])+' physical')
+            d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[i+1])+' 4500 '+str(SLIT_WIDTH[i+1])+') #color=green highlite=1}')
+            print 'test',shift[i-1],stretch[i-1]
+            wave[i],Flux[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,stretch[i-1],shift[i-1]+(FINAL_SLIT_X[i+1]*stretch[0]-FINAL_SLIT_X[i]*stretch[i-1]),quad[i-1])
+            '''
+            plt.plot(wave[i],Flux[i])
+            plt.plot(wm,fm/2.0,'ro')
+            for j in range(wm.size):
+                plt.axvline(wm[j],color='r')
+            plt.xlim(4200,5200)
+            plt.show()
+            '''
+            wave[i],Flux[i],stretch[i],shift[i] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[i],shift[i],quad[i])
         f.write(str(FINAL_SLIT_X[i+1])+'\t')
         f.write(str(FINAL_SLIT_Y[i+1])+'\t')
         f.write(str(shift[i])+'\t')
@@ -446,10 +455,6 @@ normal2_type_flux = normal2_type[0].data[0]
 early_type_wave = 10**(coeff0 + coeff1*np.arange(0,early_type_flux.size,1))
 normal_type_wave = 10**(coeff0 + coeff1*np.arange(0,normal_type_flux.size,1))
 normal2_type_wave = 10**(coeff0 + coeff1*np.arange(0,normal2_type_flux.size,1))
-
-#flux shape correction
-w2,fc = np.loadtxt('fluxcorrect.tab',dtype='float',usecols=(0,1),unpack=True)
-flux_corr = interp1d(w2,fc)
 
 redshift_est = np.zeros(shift.size)
 redshift_est2 = np.zeros(shift.size)
@@ -504,7 +509,7 @@ for k in range(redshift_est.size):
     f.write(DEC[k+1]+'\t')
     f.write(str(redshift_est[k])+'\t')
     if k in sdss_elem.astype('int'):
-        f.write(str(sdss_red[np.where(sdss_elem.astype('int')==k)][0])+'\t')
+        f.write(str(sdss_red[sdss_elem==k].values[0])+'\t')
     else:
         f.write(str(0.000)+'\t')
     f.write('\n')
