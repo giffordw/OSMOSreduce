@@ -470,9 +470,8 @@ for k in range(shift.size):
 
     Flux_sc = Flux_science[k]/signal.medfilt(Flux_science[k],171)
 
-    redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
-    
     if slit_type[str(k+1)] == 'g':
+        redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
         fig = plt.figure()
         ax2 = fig.add_subplot(111)
         pspec, = ax2.plot(wave[k],Flux_science[k])
@@ -490,6 +489,10 @@ for k in range(shift.size):
             print 'Using prior given by user'
         except:
             pass
+
+    else:
+        redshift_est[k] = 0.0
+        cor[k] = 0.0
 
     if k in sdss_elem.astype('int'):
         print 'Estimate: %.3f'%(redshift_est[k]), 'SDSS: %.3f'%(sdss_red.values[np.where(sdss_elem==k)][0])
