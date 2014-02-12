@@ -21,6 +21,7 @@ from scipy.stats import pearsonr
 from scipy.stats import norm
 from get_photoz import *
 from redshift_estimate import *
+from sncalc import *
 
 def getch():
     import tty, termios
@@ -462,6 +463,12 @@ redshift_est3 = np.zeros(shift.size)
 cor = np.zeros(shift.size)
 cor2 = np.zeros(shift.size)
 cor3 = np.zeros(shift.size)
+HSN = np.zeros(shift.size)
+KSN = np.zeros(shift.size)
+GSN = np.zeros(shift.size)
+SNavg = np.zeros(shift.size)
+SNHKmin = np.zeros(shift.size)
+
 
 sdss_elem = np.where(Gal_dat.redshift > 0.0)[0]
 sdss_red = Gal_dat[Gal_dat.redshift > 0.0].redshift
@@ -489,6 +496,9 @@ for k in range(shift.size):
             print 'Using prior given by user'
         except:
             pass
+        HSN[k],KSN[k],GSN[k] = sncalc(redshift_est[k],wave[k],Flux_sc)
+        SNavg[k] = np.average(np.array([HSN[k],KSN[k],GSN[k]]))
+        SNHKmin[k] = np.min(np.array([HSN[k],KSN[k]]))
 
     else:
         redshift_est[k] = 0.0
@@ -506,7 +516,7 @@ plt.savefig(clus_id+'/redshift_compare.png')
 plt.show()
 
 f = open(clus_id+'/estimated_redshifts.tab','w')
-f.write('#RA    DEC    Z_est    Z_sdss\n')
+f.write('#RA    DEC    Z_est    Z_sdss  correlation   H S/N    K S/N     G S/N\n')
 for k in range(redshift_est.size):
     f.write(RA[k+1]+'\t')
     f.write(DEC[k+1]+'\t')
@@ -515,6 +525,10 @@ for k in range(redshift_est.size):
         f.write(str(sdss_red[sdss_elem==k].values[0])+'\t')
     else:
         f.write(str(0.000)+'\t')
+    f.write(str(cor[k])+'\t')
+    f.write(str(HSN[k])+'\t')
+    f.write(str(KSN[k])+'\t')
+    f.write(str(GSN[k])+'\t')
     f.write('\n')
 f.close()
 

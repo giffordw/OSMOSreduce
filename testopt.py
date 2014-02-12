@@ -39,7 +39,7 @@ def air_to_vacuum(airwl,nouvconv=True):
 
 def wavecalibrate(px,fx,stretch_est=None,shift_est=None,quad_est=None,parnum=2):
     def prob1(x,x_p,F_p,w_m,F_m,st_es,sh_es,qu_es):
-        interp = interp1d(qu_es*x_p**2+x_p*x[0]+x[1],F_p,bounds_error=False,fill_value=0)
+        interp = interp1d(qu_es*(x_p-2032.0)**2+x_p*x[0]+x[1],F_p,bounds_error=False,fill_value=0)
         #interp = interpolate.splrep(x_p*x[0]+x[1],F_p,s=0)
         if np.abs(sh_es - x[1]) > 10: P0 = -np.inf
         else: P0 = 0.0
@@ -142,12 +142,12 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,quad_est=None,parnum=2):
     #if parnum == 2:
     #    return (px*max_stretch+max_shift,fx,max_stretch,max_shift)#(px*max_stretch+scimin['x'],fx,max_stretch,scimin['x'])
     #if parnum == 3:
-    return (quad_est*px**2 + px*max_stretch + max_shift,fx,quad_est,max_stretch,max_shift)#(px*max_stretch+scimin['x'],fx,max_stretch,scimin['x'])
+    return (quad_est*(px-2032.0)**2 + px*max_stretch + max_shift,fx,quad_est,max_stretch,max_shift)#(px*max_stretch+scimin['x'],fx,max_stretch,scimin['x'])
 
 def interactive_plot(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     fig,ax = plt.subplots()
     plt.subplots_adjust(left=0.25,bottom=0.30)
-    l, = plt.plot(quad_0*px**2+stretch_0*px+shift_0,fx/10.0,'b')
+    l, = plt.plot(quad_0*(px-2032)**2+stretch_0*px+shift_0,fx/10.0,'b')
     plt.plot(wm,fm/2.0,'ro')
     for i in range(wm.size): plt.axvline(wm[i],color='r')
     plt.xlim(4000,6000)
@@ -172,10 +172,10 @@ def interactive_plot(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     close_button = Button(close_ax,'Close Plots', hovercolor='0.80')
 
     def update(val):
-        l.set_xdata((quad_0+fn_slide_quad.val)*px**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata((quad_0+fn_slide_quad.val)*(px-2032.0)**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
         fig.canvas.draw_idle()
     def fineupdate(val):
-        l.set_xdata((quad_0+fn_slide_quad.val)*px**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata((quad_0+fn_slide_quad.val)*(px-2032.0)**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
         #slide_stretch.val = slide_stretch.val + fn_slide_stretch.val
         #slide_shift.val = slide_shift.val + fn_slide_shift.val
         fig.canvas.draw_idle()
@@ -198,7 +198,7 @@ def interactive_plot_plus(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     #main plot
     fig,ax = plt.subplots()
     plt.subplots_adjust(left=0.25,bottom=0.30)
-    l, = plt.plot(quad_0*px**2+stretch_0*px+shift_0,fx/10.0,'b')
+    l, = plt.plot(quad_0*(px-2032.0)**2+stretch_0*px+shift_0,fx/10.0,'b')
     plt.plot(wm,fm/2.0,'ro')
     for i in range(wm.size): plt.axvline(wm[i],color='r')
     plt.xlim(4000,6000)
@@ -222,27 +222,27 @@ def interactive_plot_plus(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     s = plt.figure()
     ax2 = s.add_subplot(211)
     ax3 = s.add_subplot(212)
-    l2, = ax2.plot(quad_0*px**2+stretch_0*px+shift_0,fx/10.0,'b')
+    l2, = ax2.plot(quad_0*(px-2032.0)**2+stretch_0*px+shift_0,fx/10.0,'b')
     ax2.plot(wm,fm/2.0,'ro')
     for i in range(wm.size): ax2.axvline(wm[i],color='r')
     ax2.set_xlim(4490,4600)
     ax2.set_ylim(0,1000)
-    l3, = ax3.plot(quad_0*px**2+stretch_0*px+shift_0,fx/10.0,'b')
+    l3, = ax3.plot(quad_0*(px-2032.0)**2+stretch_0*px+shift_0,fx/10.0,'b')
     ax3.plot(wm,fm/2.0,'ro')
     for i in range(wm.size): ax3.axvline(wm[i],color='r')
     ax3.set_xlim(4900,5100)
     ax3.set_ylim(0,1500)
 
     def update(val):
-        l.set_xdata(quad_0*px**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
-        l2.set_xdata(quad_0*px**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
-        l3.set_xdata(quad_0*px**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata(quad_0*(px-2032.0)**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l2.set_xdata(quad_0*(px-2032.0)**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l3.set_xdata(quad_0*(px-2032.0)**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
         fig.canvas.draw_idle()
         s.canvas.draw_idle()
     def fineupdate(val):
-        l.set_xdata(quad_0*px**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
-        l2.set_xdata(quad_0*px**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
-        l3.set_xdata(quad_0*px**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata(quad_0*(px-2032.0)**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l2.set_xdata(quad_0*(px-2032.0)**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l3.set_xdata(quad_0*(px-2032.0)**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
         #slide_stretch.val = slide_stretch.val + fn_slide_stretch.val
         #slide_shift.val = slide_shift.val + fn_slide_shift.val
         fig.canvas.draw_idle()
@@ -259,7 +259,7 @@ def interactive_plot_plus(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     shift_est = slide_shift.val+fn_slide_shift.val
     stretch_est = slide_stretch.val+fn_slide_stretch.val
     print 'quad_0:',quad_0,'stretch_0:',stretch_est,'shift_0:',shift_est
-    return (quad_0*px**2+px*stretch_est+shift_est,fx,stretch_est,shift_est)
+    return (quad_0*(px-2032.0)**2+px*stretch_est+shift_est,fx,stretch_est,shift_est)
 
 if __name__ == '__main__':
     from astropy.io import fits as pyfits
