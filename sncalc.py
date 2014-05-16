@@ -1,3 +1,4 @@
+'''Build like you want to distribute on GitHub'''
 from scipy import signal
 import numpy as np
 import matplotlib.pyplot as plt

@@ -1,4 +1,4 @@
-'''Build like you want to distribute'''
+'''Build like you want to distribute on GitHub'''
 
 import numpy as np
 from astropy.io import fits as pyfits

@@ -1,3 +1,4 @@
+'''Build like you want to distribute on GitHub'''
 import numpy as np
 import matplotlib.pyplot as plt
 
