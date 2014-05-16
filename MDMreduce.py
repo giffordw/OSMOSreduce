@@ -22,6 +22,7 @@ from scipy.stats import norm
 from get_photoz import *
 from redshift_estimate import *
 from sncalc import *
+from redshift_checker import *
 
 def getch():
     import tty, termios
@@ -49,7 +50,7 @@ class EstimateHK:
         #self.cid = fig.canvas.mpl_connect('button_press_event',self.onclick)
         #self.cid1 = fig.canvas.mpl_connect('key_press_event',self.on_key_press)
         #self.cid2 = fig.canvas.mpl_connect('key_release_event',self.on_key_release)
-        self.cid3 = fig.canvas.mpl_connect('button_press_event',self.onclick)
+        self.cid3 = pspec.figure.canvas.mpl_connect('button_press_event',self.onclick)
         #self.shift_is_held = False
 
     def on_key_press(self,event):
@@ -185,6 +186,11 @@ for line in alltext:
 #objID','SpecObjID','ra','dec','umag','gmag','rmag','imag','zmag','redshift','photo_z','extra'
 Gal_dat = query_galaxies(RA[1:],DEC[1:])
 
+gal_z = Gal_dat['redshift']
+gal_gmag = Gal_dat['gmag']
+gal_rmag = Gal_dat['rmag']
+gal_imag = Gal_dat['imag']
+
 ####################
 #Open images in ds9#
 ####################
@@ -261,7 +267,7 @@ if reassign == 'n':
         print 'Galaxy at ',RA[i],DEC[i]
         d.set('regions command {box(2000 '+str(SLIT_Y[i])+' 4500 40) #color=green highlite=1}')
         #raw_input('Once done: hit ENTER')
-        if slit_type[str(i)] == 'g':
+        if slit_type[str(i)] == 'g' and gal_z[i] != 0.0:
             print 'Is this spectra good (y) or bad (n)?'
             while True:
                 char = getch()
@@ -433,7 +439,8 @@ else:
         wave[i] = stretch[i]*np.arange(0,4064,1)+shift[i]
 
 #summed science slits + filtering to see spectra
-Flux_science = np.array([signal.medfilt(np.sum(scifits_c2.data[FINAL_SLIT_Y[i+1]-SLIT_WIDTH[i+1]/2.0:FINAL_SLIT_Y[i+1]+SLIT_WIDTH[i+1]/2.0,:],axis=0)[::-1],13) for i in range(stretch.size)])
+Flux_science = np.array([signal.medfilt(np.sum(scifits_c2.data[FINAL_SLIT_Y[i+1]-SLIT_WIDTH[i+1]/2.0:FINAL_SLIT_Y[i+1]+SLIT_WIDTH[i+1]/2.0,:],axis=0)[::-1],11) for i in range(stretch.size)])
+#Flux_science = np.array([np.sum(scifits_c2.data[FINAL_SLIT_Y[i+1]-SLIT_WIDTH[i+1]/2.0:FINAL_SLIT_Y[i+1]+SLIT_WIDTH[i+1]/2.0,:],axis=0)[::-1] for i in range(stretch.size)])
 
 
 
@@ -469,7 +476,6 @@ GSN = np.zeros(shift.size)
 SNavg = np.zeros(shift.size)
 SNHKmin = np.zeros(shift.size)
 
-
 sdss_elem = np.where(Gal_dat.redshift > 0.0)[0]
 sdss_red = Gal_dat[Gal_dat.redshift > 0.0].redshift
 for k in range(shift.size):
@@ -477,7 +483,9 @@ for k in range(shift.size):
 
     Flux_sc = Flux_science[k]/signal.medfilt(Flux_science[k],171)
 
-    if slit_type[str(k+1)] == 'g':
+    if slit_type[str(k+1)] == 'g':# and gal_z[k] != 0.0:
+        d.set('pan to 1150.0 '+str(SLIT_Y[k+1])+' physical')
+        d.set('regions command {box(2000 '+str(SLIT_Y[k+1])+' 4500 40) #color=green highlite=1}')
         redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
         fig = plt.figure()
         ax2 = fig.add_subplot(111)
@@ -487,14 +495,34 @@ for k in range(shift.size):
         ax2.axvline(4304.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
         ax2.axvline(5175.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
         HK_est = EstimateHK(pspec)
-        ax2.set_xlim(3800,5500)
+        ax2.set_xlim(3800,5100)
         plt.show()
         try:
             pre_lam_est = HK_est.lam
             pre_z_est = pre_lam_est/3950.0 - 1.0
             redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
             print 'Using prior given by user'
+            figure = plt.figure()
+            ax = figure.add_subplot(111)
+            spectra, = ax.plot(wave[k]/(1+redshift_est[k]),Flux_science[k])
+            ax.axvline(3968.5,ls='--',alpha=0.7,c='red')
+            ax.axvline(3933.7,ls='--',alpha=0.7,c='red')
+            ax.axvline(4304.0,ls='--',alpha=0.7,c='red')
+            #ax.axvline(3968.5*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
+            #ax.axvline(3933.7*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
+            #ax.axvline(4304.0*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
+            ax.set_xlim(3500,4600)
+            print 'got to drag'
+            spectra2 = DragSpectra(spectra,Flux_science[k])
+            figure.canvas.mpl_connect('motion_notify_event',spectra2.on_motion)
+            figure.canvas.mpl_connect('button_press_event',spectra2.on_press)
+            figure.canvas.mpl_connect('button_release_event',spectra2.on_release)
+            plt.show()
+            total_new_shift = spectra2.dx_tot
+            print total_new_shift
+            redshift_est[k] = (3968.5*(1+redshift_est[k]) - total_new_shift)/3968.5 - 1
         except:
+            print 'failed redshift fix'
             pass
         HSN[k],KSN[k],GSN[k] = sncalc(redshift_est[k],wave[k],Flux_sc)
         SNavg[k] = np.average(np.array([HSN[k],KSN[k],GSN[k]]))
@@ -505,7 +533,7 @@ for k in range(shift.size):
         cor[k] = 0.0
 
     if k in sdss_elem.astype('int'):
-        print 'Estimate: %.3f'%(redshift_est[k]), 'SDSS: %.3f'%(sdss_red.values[np.where(sdss_elem==k)][0])
+        print 'Estimate: %.5f'%(redshift_est[k]), 'SDSS: %.5f'%(sdss_red.values[np.where(sdss_elem==k)][0])
     print 'z found for galaxy '+str(k+1)+' of '+str(shift.size)
 
 plt.plot(sdss_red,redshift_est[sdss_elem.astype('int')],'ro')
@@ -516,19 +544,23 @@ plt.savefig(clus_id+'/redshift_compare.png')
 plt.show()
 
 f = open(clus_id+'/estimated_redshifts.tab','w')
-f.write('#RA    DEC    Z_est    Z_sdss  correlation   H S/N    K S/N     G S/N\n')
+f.write('#RA    DEC    Z_est    Z_sdss  correlation   H S/N    K S/N     G S/N  gal_gmag    gal_rmag    gal_imag\n')
 for k in range(redshift_est.size):
     f.write(RA[k+1]+'\t')
     f.write(DEC[k+1]+'\t')
     f.write(str(redshift_est[k])+'\t')
-    if k in sdss_elem.astype('int'):
-        f.write(str(sdss_red[sdss_elem==k].values[0])+'\t')
-    else:
-        f.write(str(0.000)+'\t')
+    f.write(str(gal_z[k])+'\t')
+    #if k in sdss_elem.astype('int'):
+    #    f.write(str(sdss_red[sdss_elem==k].values[0])+'\t')
+    #else:
+    #    f.write(str(0.000)+'\t')
     f.write(str(cor[k])+'\t')
     f.write(str(HSN[k])+'\t')
     f.write(str(KSN[k])+'\t')
     f.write(str(GSN[k])+'\t')
+    f.write(str(gal_gmag[k])+'\t')
+    f.write(str(gal_rmag[k])+'\t')
+    f.write(str(gal_imag[k])+'\t')
     f.write('\n')
 f.close()
 
