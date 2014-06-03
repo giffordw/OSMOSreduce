@@ -274,11 +274,14 @@ if reassign == 'n':
                 if char.lower() in ("y","n"):
                     break
             good_spectra = np.append(good_spectra,char.lower())
-            newpos_str = d.get('regions').split('\n')[4]
-            newpos = re.search('box\(.*,(.*),.*,(.*),.*\)',newpos_str)
-            FINAL_SLIT_X[i] = SLIT_X[i]
-            FINAL_SLIT_Y[i] = newpos.group(1)
-            SLIT_WIDTH[i] = newpos.group(2)
+            newpos_str = d.get('regions').split('\n')
+            for n_string in newpos_str:
+                if n_string[:3] == 'box':
+                    newpos = re.search('box\(.*,(.*),.*,(.*),.*\)',n_string)
+                    FINAL_SLIT_X[i] = SLIT_X[i]
+                    FINAL_SLIT_Y[i] = newpos.group(1)
+                    SLIT_WIDTH[i] = newpos.group(2)
+                    break
         else:
             good_spectra = np.append(good_spectra,'n')
             FINAL_SLIT_X[i] = SLIT_X[i]
