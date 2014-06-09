@@ -274,7 +274,7 @@ if reassign == 'n':
                     char = getch()
                     if char.lower() in ("y","n"):
                         break
-                good_spectra = np.append(good_spectra,char.lower())
+                good_spectra = np.append(good_spectra,'y')#char.lower())
                 newpos_str = d.get('regions').split('\n')
                 for n_string in newpos_str:
                     if n_string[:3] == 'box':
