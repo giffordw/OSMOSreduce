@@ -267,21 +267,27 @@ if reassign == 'n':
         print 'Galaxy at ',RA[i],DEC[i]
         d.set('regions command {box(2000 '+str(SLIT_Y[i])+' 4500 40) #color=green highlite=1}')
         #raw_input('Once done: hit ENTER')
-        if slit_type[str(i)] == 'g' and gal_z[i] != 0.0:
-            print 'Is this spectra good (y) or bad (n)?'
-            while True:
-                char = getch()
-                if char.lower() in ("y","n"):
-                    break
-            good_spectra = np.append(good_spectra,char.lower())
-            newpos_str = d.get('regions').split('\n')
-            for n_string in newpos_str:
-                if n_string[:3] == 'box':
-                    newpos = re.search('box\(.*,(.*),.*,(.*),.*\)',n_string)
-                    FINAL_SLIT_X[i] = SLIT_X[i]
-                    FINAL_SLIT_Y[i] = newpos.group(1)
-                    SLIT_WIDTH[i] = newpos.group(2)
-                    break
+        if i > 0:
+            if slit_type[str(i)] == 'g' and gal_z[i-1] != 0.0:
+                print 'Is this spectra good (y) or bad (n)?'
+                while True:
+                    char = getch()
+                    if char.lower() in ("y","n"):
+                        break
+                good_spectra = np.append(good_spectra,char.lower())
+                newpos_str = d.get('regions').split('\n')
+                for n_string in newpos_str:
+                    if n_string[:3] == 'box':
+                        newpos = re.search('box\(.*,(.*),.*,(.*),.*\)',n_string)
+                        FINAL_SLIT_X[i] = SLIT_X[i]
+                        FINAL_SLIT_Y[i] = newpos.group(1)
+                        SLIT_WIDTH[i] = newpos.group(2)
+                        break
+            else:
+                good_spectra = np.append(good_spectra,'n')
+                FINAL_SLIT_X[i] = SLIT_X[i]
+                FINAL_SLIT_Y[i] = SLIT_Y[i]
+                SLIT_WIDTH[i] = 40
         else:
             good_spectra = np.append(good_spectra,'n')
             FINAL_SLIT_X[i] = SLIT_X[i]
@@ -536,7 +542,7 @@ for k in range(shift.size):
         cor[k] = 0.0
 
     if k in sdss_elem.astype('int'):
-        print 'Estimate: %.5f'%(redshift_est[k]), 'SDSS: %.5f'%(sdss_red.values[np.where(sdss_elem==k)][0])
+        print 'Estimate: %.5f'%(redshift_est[k]), 'SDSS: %.5f'%(sdss_red.values[np.where(sdss_elem==k+1)][0])
     print 'z found for galaxy '+str(k+1)+' of '+str(shift.size)
 
 plt.plot(sdss_red,redshift_est[sdss_elem.astype('int')],'ro')
