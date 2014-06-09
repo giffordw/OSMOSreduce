@@ -267,7 +267,7 @@ if reassign == 'n':
         print 'Galaxy at ',RA[i],DEC[i]
         d.set('regions command {box(2000 '+str(SLIT_Y[i])+' 4500 40) #color=green highlite=1}')
         #raw_input('Once done: hit ENTER')
-        if slit_type[str(i)] == 'g' and gal_z[i] != 0.0:
+        if slit_type[str(i)] == 'g':
             print 'Is this spectra good (y) or bad (n)?'
             while True:
                 char = getch()
