@@ -267,7 +267,7 @@ if reassign == 'n':
         print 'Galaxy at ',RA[i],DEC[i]
         d.set('regions command {box(2000 '+str(SLIT_Y[i])+' 4500 40) #color=green highlite=1}')
         #raw_input('Once done: hit ENTER')
-        if slit_type[str(i)] == 'g':
+        if slit_type[str(i)] == 'g' and gal_z[i] != 0.0:
             print 'Is this spectra good (y) or bad (n)?'
             while True:
                 char = getch()
@@ -486,7 +486,7 @@ for k in range(shift.size):
 
     Flux_sc = Flux_science[k]/signal.medfilt(Flux_science[k],171)
 
-    if slit_type[str(k+1)] == 'g':# and gal_z[k] != 0.0:
+    if slit_type[str(k+1)] == 'g' and gal_z[k] != 0.0:
         d.set('pan to 1150.0 '+str(SLIT_Y[k+1])+' physical')
         d.set('regions command {box(2000 '+str(SLIT_Y[k+1])+' 4500 40) #color=green highlite=1}')
         redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
