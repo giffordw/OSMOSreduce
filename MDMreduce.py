@@ -542,7 +542,7 @@ for k in range(shift.size):
         cor[k] = 0.0
 
     if k in sdss_elem.astype('int'):
-        print 'Estimate: %.5f'%(redshift_est[k]), 'SDSS: %.5f'%(sdss_red.values[np.where(sdss_elem==k+1)][0])
+        print 'Estimate: %.5f'%(redshift_est[k]), 'SDSS: %.5f'%(sdss_red.values[np.where(sdss_elem==k)][0])
     print 'z found for galaxy '+str(k+1)+' of '+str(shift.size)
 
 plt.plot(sdss_red,redshift_est[sdss_elem.astype('int')],'ro')
