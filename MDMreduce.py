@@ -383,14 +383,17 @@ wave = np.zeros((FINAL_SLIT_X.size-1,4064))
 if os.path.isfile(clus_id+'/'+clus_id+'_stretchshift.tab'):
     reassign = raw_input('Detected file with stretch and shift parameters for each spectra. Do you wish to use this (y) or remove and re-adjust (n)? ')
 if reassign == 'n':
+    #create write file
     f = open(clus_id+'/'+clus_id+'_stretchshift.tab','w')
     f.write('#X_SLIT      Y_SLIT      SHIFT       STRETCH     QUAD  WIDTH \n')
+    
+    #initialize polynomial arrays
     quad,stretch,shift = np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1)
     Flux = np.zeros((FINAL_SLIT_X.size-1,4064))
     calib_data = arcfits_c.data
     p_x = np.arange(0,4064,1)
     if good_spectra[1]=='y':
-        f_x = signal.medfilt(np.sum(calib_data[FINAL_SLIT_Y[1]-SLIT_WIDTH[1]/2.0:FINAL_SLIT_Y[1]+SLIT_WIDTH[1]/2.0,:],axis=0),5)
+        f_x = np.sum(calib_data[FINAL_SLIT_Y[1]-SLIT_WIDTH[1]/2.0:FINAL_SLIT_Y[1]+SLIT_WIDTH[1]/2.0,:],axis=0)
         d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[1])+' physical')
         d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[1])+' 4500 '+str(SLIT_WIDTH[1])+') #color=green highlite=1}')
         wave[0],Flux[0],quad[0],stretch[0],shift[0] = wavecalibrate(p_x,f_x,parnum=2)
