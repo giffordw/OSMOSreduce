@@ -177,6 +177,8 @@ for line in alltext:
     if Ymatch:
         SLIT_Y = np.append(SLIT_Y,0.5*naxis2+np.float(Ymatch.group(1))*(11.528)/(pixscale)+yshift)
 
+pdb.set_trace()
+
 ###############################################################
 
 ############################

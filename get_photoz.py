@@ -17,7 +17,7 @@ def query_galaxies(ra,dec):
             print 'oops! More than 1 candidate found'
         if len(query) == 1:
             print 'No targets found'
-            gal_sdss_data.append([0,0,0,0,0,0,0,0,0,0,0,0])
+            gal_sdss_data.append([0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
             continue
         gal_sdss_data.append(map(float,query[1][:-1].split(',')))
         print 'Done with galaxy',i
