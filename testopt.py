@@ -7,6 +7,7 @@ from scipy.stats import spearmanr
 from scipy.optimize import minimize
 from scipy import interpolate
 import pdb
+import pandas as pd
 
 def air_to_vacuum(airwl,nouvconv=True):
     """
@@ -37,6 +38,17 @@ def air_to_vacuum(airwl,nouvconv=True):
         newwl[:] *= convfact
     return newwl[0] if isscal else newwl
 
+def gaussian_lines(line_x,line_a,xgrid,width=2.0):
+    '''
+    Creates ideal Xenon spectrum
+    '''
+    #print 'Creating ideal calibration spectrum'
+    temp = np.zeros(xgrid.size)
+    for i in range(line_a.size):
+        gauss = line_a[i]*np.exp(-(xgrid-line_x[i])**2/(2*width**2))
+        temp += gauss
+    return temp
+
 def wavecalibrate(px,fx,stretch_est=None,shift_est=None,quad_est=None,parnum=2):
     def prob1(x,x_p,F_p,w_m,F_m,st_es,sh_es,qu_es):
         interp = interp1d(qu_es*(x_p-2032.0)**2+x_p*x[0]+x[1],F_p,bounds_error=False,fill_value=0)
@@ -58,10 +70,15 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,quad_est=None,parnum=2):
         else: P1 = 0.0
         return np.sum(F_m[np.where((w_m>4000)&(w_m<5300))]+interp(w_m[np.where((w_m>4000)&(w_m<5300))])) + P0 + P1
 
+    #flip and normalize flux
     fx = fx[::-1]
     fx = fx - np.min(fx)
+
+    #prep calibration lines into 1d spectra
     wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
     wm = air_to_vacuum(wm)
+    xgrid = np.arange(0.0,6800.0,0.01)
+    lines_gauss = gaussian_lines(wm,fm,xgrid)
 
     if stretch_est is None or stretch_est is not None:
         if stretch_est is not None:
