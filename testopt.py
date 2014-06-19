@@ -108,11 +108,11 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,qu_es=None):
     max_stretch,max_shift,max_quad,max_cube = sorted_chain[0]
     print 'First Pass'
     print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e'%(max_stretch,max_shift,max_quad,max_cube)
-    wave_new =  max_cube*p_x**3 + max_quad*(p_x-2032.0)**2+p_x*max_stretch + max_shift
+    wave_new =  max_cube*px**3 + max_quad*(px-2032.0)**2+px*max_stretch + max_shift
     
     #Second Pass
     p0 = np.vstack((np.random.uniform(max_stretch-0.005,max_stretch+0.005,nwalkers),np.random.uniform(-10,10,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[p_x,f_x,xgrid,lines_gauss,max_stretch,max_shift,max_quad,interp,0.01,10.0])
+    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,max_stretch,max_shift,max_quad,interp,0.01,10.0])
     print 'Starting Main MCMC'
     start = time.time()
     sampler.run_mcmc(p0,500)
@@ -125,11 +125,11 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,qu_es=None):
     max_stretch,max_shift,max_quad,max_cube = sorted_chain[0]
     print 'Second Pass'
     print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e'%(max_stretch,max_shift,max_quad,max_cube)
-    wave_new =  max_cube*p_x**3 + max_quad*(p_x-2032.0)**2+p_x*max_stretch + max_shift
+    wave_new =  max_cube*px**3 + max_quad*(px-2032.0)**2+px*max_stretch + max_shift
     
     #Third Pass
     p0 = np.vstack((np.random.uniform(max_stretch-0.002,max_stretch+0.002,nwalkers),np.random.uniform(-3,3,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-1e-11,1e-11,nwalkers))).T
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[p_x,f_x,xgrid,lines_gauss,stretch_est,shift_est,qu_es,interp,0.005,10.0])
+    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es,interp,0.005,10.0])
     print 'Starting Main MCMC'
     start = time.time()
     sampler.run_mcmc(p0,500)
@@ -141,7 +141,7 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,qu_es=None):
     max_stretch,max_shift,max_quad,max_cube = sorted_chain[0]
     print 'Third Pass'
     print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e   Max_cube: %e'%(max_stretch,max_shift,max_quad,max_cube)
-    wave_new =  max_cube*p_x**3 + max_quad*(p_x-2032.0)**2+p_x*max_stretch + max_shift
+    wave_new =  max_cube*px**3 + max_quad*(px-2032.0)**2+px*max_stretch + max_shift
     
     plt.plot(xgrid,lines_gauss)
     plt.plot(wave_new,fx)

@@ -385,10 +385,11 @@ if os.path.isfile(clus_id+'/'+clus_id+'_stretchshift.tab'):
 if reassign == 'n':
     #create write file
     f = open(clus_id+'/'+clus_id+'_stretchshift.tab','w')
-    f.write('#X_SLIT      Y_SLIT      SHIFT       STRETCH     QUAD  WIDTH \n')
+    f.write('#X_SLIT     Y_SLIT     SHIFT     STRETCH     QUAD     CUBE     WIDTH \n')
     
     #initialize polynomial arrays
     cube,quad,stretch,shift = np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1)
+    quad_est,shift_est,stretch_est = np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1)
     Flux = np.zeros((FINAL_SLIT_X.size-1,4064))
     calib_data = arcfits_c.data
     p_x = np.arange(0,4064,1)
@@ -396,8 +397,8 @@ if reassign == 'n':
         f_x = np.sum(calib_data[FINAL_SLIT_Y[1]-SLIT_WIDTH[1]/2.0:FINAL_SLIT_Y[1]+SLIT_WIDTH[1]/2.0,:],axis=0)
         d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[1])+' physical')
         d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[1])+' 4500 '+str(SLIT_WIDTH[1])+') #color=green highlite=1}')
-        stretch_est,shift_est,quad_est = interactive_plot(p_x,f_x,0.70,shift_0,0.0)
-        wave[0],Flux[0],quad[0],stretch[0],shift[0] = wavecalibrate(p_x,f_x,stretch_est,shift_est,quad_est)
+        stretch_est[0],shift_est[0],quad_est[0] = interactive_plot(p_x,f_x,0.70,shift_0,0.0)
+        wave[0],Flux[0],cube[0],quad[0],stretch[0],shift[0] = wavecalibrate(p_x,f_x,stretch_est[0],shift_est[0],quad_est[0])
         
         plt.plot(wave[0],Flux[0])
         plt.plot(wm,fm/2.0,'ro')
@@ -423,8 +424,10 @@ if reassign == 'n':
             f_x = np.sum(calib_data[FINAL_SLIT_Y[i+1]-SLIT_WIDTH[i+1]/2.0:FINAL_SLIT_Y[i+1]+SLIT_WIDTH[i+1]/2.0,:],axis=0)
             d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[i+1])+' physical')
             d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[i+1])+' 4500 '+str(SLIT_WIDTH[i+1])+') #color=green highlite=1}')
-            print 'test',shift[i-1],stretch[i-1]
-            wave[i],Flux[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,stretch[i-1],shift[i-1]+(FINAL_SLIT_X[i+1]*stretch[0]-FINAL_SLIT_X[i]*stretch[i-1]),quad[i-1])
+            stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]+(FINAL_SLIT_X[i+1]*stretch_est[0]-FINAL_SLIT_X[i]*stretch_est[i-1]),quad[i-1])
+    for i in range(1,stretch.size):
+        if good_spectra[i+1] == 'y':
+            wave[i],Flux[i],cube[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,stretch_est[i],shift_est[i],quad_est[i])
             '''
             plt.plot(wave[i],Flux[i])
             plt.plot(wm,fm/2.0,'ro')
