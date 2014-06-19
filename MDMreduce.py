@@ -396,16 +396,17 @@ if reassign == 'n':
         f_x = np.sum(calib_data[FINAL_SLIT_Y[1]-SLIT_WIDTH[1]/2.0:FINAL_SLIT_Y[1]+SLIT_WIDTH[1]/2.0,:],axis=0)
         d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[1])+' physical')
         d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[1])+' 4500 '+str(SLIT_WIDTH[1])+') #color=green highlite=1}')
-        wave[0],Flux[0],quad[0],stretch[0],shift[0] = wavecalibrate(p_x,f_x,parnum=2)
-        '''
+        stretch_est,shift_est,quad_est = interactive_plot(p_x,f_x,0.70,shift_0,0.0)
+        wave[0],Flux[0],quad[0],stretch[0],shift[0] = wavecalibrate(p_x,f_x,stretch_est,shift_est,quad_est)
+        
         plt.plot(wave[0],Flux[0])
         plt.plot(wm,fm/2.0,'ro')
         for j in range(wm.size):
             plt.axvline(wm[j],color='r')
         plt.xlim(4200,5200)
         plt.show()
-        '''
-        wave[0],Flux[0],stretch[0],shift[0] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[0],shift[0],quad[0])
+        
+        #wave[0],Flux[0],stretch[0],shift[0] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[0],shift[0],quad[0])
     f.write(str(FINAL_SLIT_X[1])+'\t')
     f.write(str(FINAL_SLIT_Y[1])+'\t')
     f.write(str(shift[0])+'\t')
@@ -419,7 +420,7 @@ if reassign == 'n':
         print 'Calibrating',i,'of',stretch.size-1
         if good_spectra[i+1] == 'y':
             p_x = np.arange(0,4064,1)
-            f_x = signal.medfilt(np.sum(calib_data[FINAL_SLIT_Y[i+1]-SLIT_WIDTH[i+1]/2.0:FINAL_SLIT_Y[i+1]+SLIT_WIDTH[i+1]/2.0,:],axis=0),5)
+            f_x = np.sum(calib_data[FINAL_SLIT_Y[i+1]-SLIT_WIDTH[i+1]/2.0:FINAL_SLIT_Y[i+1]+SLIT_WIDTH[i+1]/2.0,:],axis=0)
             d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[i+1])+' physical')
             d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[i+1])+' 4500 '+str(SLIT_WIDTH[i+1])+') #color=green highlite=1}')
             print 'test',shift[i-1],stretch[i-1]
@@ -432,7 +433,7 @@ if reassign == 'n':
             plt.xlim(4200,5200)
             plt.show()
             '''
-            wave[i],Flux[i],stretch[i],shift[i] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[i],shift[i],quad[i])
+            #wave[i],Flux[i],stretch[i],shift[i] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[i],shift[i],quad[i])
         f.write(str(FINAL_SLIT_X[i+1])+'\t')
         f.write(str(FINAL_SLIT_Y[i+1])+'\t')
         f.write(str(shift[i])+'\t')
