@@ -388,7 +388,7 @@ if reassign == 'n':
     f.write('#X_SLIT      Y_SLIT      SHIFT       STRETCH     QUAD  WIDTH \n')
     
     #initialize polynomial arrays
-    quad,stretch,shift = np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1)
+    cube,quad,stretch,shift = np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1),np.zeros(FINAL_SLIT_X.size-1)
     Flux = np.zeros((FINAL_SLIT_X.size-1,4064))
     calib_data = arcfits_c.data
     p_x = np.arange(0,4064,1)
@@ -411,11 +411,11 @@ if reassign == 'n':
     f.write(str(shift[0])+'\t')
     f.write(str(stretch[0])+'\t')
     f.write(str(quad[0])+'\t')
+    f.write(str(cube[0])+'\t')
     f.write(str(SLIT_WIDTH[1])+'\t')
     f.write('\n')
 
-    for i in range(stretch.size-1):
-        i += 1
+    for i in range(1,stretch.size):
         print 'Calibrating',i,'of',stretch.size-1
         if good_spectra[i+1] == 'y':
             p_x = np.arange(0,4064,1)
@@ -438,6 +438,7 @@ if reassign == 'n':
         f.write(str(shift[i])+'\t')
         f.write(str(stretch[i])+'\t')
         f.write(str(quad[i])+'\t')
+        f.write(str(cube[i])+'\t')
         f.write(str(SLIT_WIDTH[i+1])+'\t')
         f.write('\n')
         #if auto == 'n':
