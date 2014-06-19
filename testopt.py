@@ -50,7 +50,7 @@ def gaussian_lines(line_x,line_a,xgrid,width=2.0):
         temp += gauss
     return temp
 
-def wavecalibrate(px,fx,stretch_est=None,shift_est=None,quad_est=None):
+def wavecalibrate(px,fx,stretch_est=None,shift_est=None,qu_es=None):
     def prob2(x,x_p,F_p,w_m,F_m,st_es,sh_es,qu_es,interp,st_width=0.03,sh_width=75.0):
         #interp = interp1d(w_m,F_m,bounds_error=False,fill_value=0)
         new_wave = x[3]*x_p**3 + x[2]*(x_p-2032.0)**2+x_p*x[0]+x[1]
@@ -69,8 +69,8 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,quad_est=None):
         else: return -0.5 * (1.0 - corr) 
 
     #flip and normalize flux
-    fx = fx[::-1]
     fx = fx - np.min(fx)
+    fx = fx[::-1]
 
     #prep calibration lines into 1d spectra
     wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
@@ -79,17 +79,10 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,quad_est=None):
     lines_gauss = gaussian_lines(wm,fm,xgrid)
     interp = interp1d(xgrid,lines_gauss,bounds_error=False,fill_value=0)
 
-    if stretch_est is None or stretch_est is not None:
-        if stretch_est is not None:
-            stretch_0 = stretch_est
-            shift_0 = shift_est
-            quad_0 = quad_est
-        else:
-            stretch_0 = 0.68
-            shift_0 = 0.0
-            quad_0 = 1e-5
-        print stretch_0,shift_0
-        stretch_est,shift_est,qu_es = interactive_plot(px,fx,wm,fm,stretch_0,shift_0,quad_0)
+    if stretch_est is None:
+        stretch_est = 0.68
+        shift_est = 0.0
+        qu_es = 1e-6
     
     #MCMC
     ndim,nwalkers = 4,100
@@ -157,7 +150,15 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,quad_est=None):
     pdb.set_trace()
     return (wave_new,fx,max_cube,max_quad,max_stretch,max_shift)
 
-def interactive_plot(px,fx,wm,fm,stretch_0,shift_0,quad_0):
+def interactive_plot(px,fx,stretch_0,shift_0,quad_0):
+    #flip and normalize flux
+    fx = fx - np.min(fx)
+    fx = fx[::-1]
+
+    #prep calibration lines into 1d spectra
+    wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
+    wm = air_to_vacuum(wm)
+    
     fig,ax = plt.subplots()
     plt.subplots_adjust(left=0.25,bottom=0.30)
     l, = plt.plot(quad_0*(px-2032)**2+stretch_0*px+shift_0,fx/10.0,'b')
