@@ -109,7 +109,8 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,qu_es=None):
     print 'First Pass'
     print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e'%(max_stretch,max_shift,max_quad,max_cube)
     wave_new =  max_cube*px**3 + max_quad*(px-2032.0)**2+px*max_stretch + max_shift
-    
+    pdb.set_trace()
+    '''
     #Second Pass
     p0 = np.vstack((np.random.uniform(max_stretch-0.005,max_stretch+0.005,nwalkers),np.random.uniform(-10,10,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
     sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,max_stretch,max_shift,max_quad,interp,0.01,10.0])
@@ -142,12 +143,7 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,qu_es=None):
     print 'Third Pass'
     print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e   Max_cube: %e'%(max_stretch,max_shift,max_quad,max_cube)
     wave_new =  max_cube*px**3 + max_quad*(px-2032.0)**2+px*max_stretch + max_shift
-    
-    plt.plot(xgrid,lines_gauss)
-    plt.plot(wave_new,fx)
-    plt.show()
-    print 'TAKE A LOOK AT THE MCMC SPACE'
-    pdb.set_trace()
+    '''
     return (wave_new,fx,max_cube,max_quad,max_stretch,max_shift)
 
 def interactive_plot(px,fx,stretch_0,shift_0,quad_0):

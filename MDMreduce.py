@@ -393,31 +393,36 @@ if reassign == 'n':
     Flux = np.zeros((FINAL_SLIT_X.size-1,4064))
     calib_data = arcfits_c.data
     p_x = np.arange(0,4064,1)
-    if good_spectra[1]=='y':
-        f_x = np.sum(calib_data[FINAL_SLIT_Y[1]-SLIT_WIDTH[1]/2.0:FINAL_SLIT_Y[1]+SLIT_WIDTH[1]/2.0,:],axis=0)
-        d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[1])+' physical')
-        d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[1])+' 4500 '+str(SLIT_WIDTH[1])+') #color=green highlite=1}')
-        stretch_est[0],shift_est[0],quad_est[0] = interactive_plot(p_x,f_x,0.70,shift_0,0.0)
-        wave[0],Flux[0],cube[0],quad[0],stretch[0],shift[0] = wavecalibrate(p_x,f_x,stretch_est[0],shift_est[0],quad_est[0])
-        
-        plt.plot(wave[0],Flux[0])
-        plt.plot(wm,fm/2.0,'ro')
-        for j in range(wm.size):
-            plt.axvline(wm[j],color='r')
-        plt.xlim(4200,5200)
-        plt.show()
-        
-        #wave[0],Flux[0],stretch[0],shift[0] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[0],shift[0],quad[0])
-    f.write(str(FINAL_SLIT_X[1])+'\t')
-    f.write(str(FINAL_SLIT_Y[1])+'\t')
-    f.write(str(shift[0])+'\t')
-    f.write(str(stretch[0])+'\t')
-    f.write(str(quad[0])+'\t')
-    f.write(str(cube[0])+'\t')
-    f.write(str(SLIT_WIDTH[1])+'\t')
-    f.write('\n')
+    ii = 1
+    while ii <= stretch.size:
+        if good_spectra[ii]=='y':
+            f_x = np.sum(calib_data[FINAL_SLIT_Y[ii]-SLIT_WIDTH[ii]/2.0:FINAL_SLIT_Y[ii]+SLIT_WIDTH[ii]/2.0,:],axis=0)
+            d.set('pan to 1150.0 '+str(FINAL_SLIT_Y[ii])+' physical')
+            d.set('regions command {box(2000 '+str(FINAL_SLIT_Y[ii])+' 4500 '+str(SLIT_WIDTH[ii])+') #color=green highlite=1}')
+            stretch_est[ii-1],shift_est[ii-1],quad_est[ii-1] = interactive_plot(p_x,f_x,0.70,0.0,0.0)
+            wave[ii-1],Flux[ii-1],cube[ii-1],quad[ii-1],stretch[ii-1],shift[ii-1] = wavecalibrate(p_x,f_x,stretch_est[ii-1],shift_est[ii-1],quad_est[ii-1])
+            
+            plt.plot(wave[ii-1],Flux[ii-1]/np.max(Flux[ii-1]))
+            plt.plot(wm,fm/np.max(fm),'ro')
+            for j in range(wm.size):
+                plt.axvline(wm[j],color='r')
+            plt.xlim(4200,5200)
+            plt.savefig('figs/'+str(ii)+'.wave.png')
+            plt.show()
+            break
+            
+            #wave[0],Flux[0],stretch[0],shift[0] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[0],shift[0],quad[0])
+        f.write(str(FINAL_SLIT_X[ii])+'\t')
+        f.write(str(FINAL_SLIT_Y[ii])+'\t')
+        f.write(str(shift[ii-1])+'\t')
+        f.write(str(stretch[ii-1])+'\t')
+        f.write(str(quad[ii-1])+'\t')
+        f.write(str(cube[ii-1])+'\t')
+        f.write(str(SLIT_WIDTH[ii])+'\t')
+        f.write('\n')
+        ii+=1
 
-    for i in range(1,stretch.size):
+    for i in range(ii,stretch.size):
         print 'Calibrating',i,'of',stretch.size-1
         if good_spectra[i+1] == 'y':
             p_x = np.arange(0,4064,1)
@@ -428,14 +433,13 @@ if reassign == 'n':
     for i in range(1,stretch.size):
         if good_spectra[i+1] == 'y':
             wave[i],Flux[i],cube[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,stretch_est[i],shift_est[i],quad_est[i])
-            '''
-            plt.plot(wave[i],Flux[i])
-            plt.plot(wm,fm/2.0,'ro')
+            plt.plot(wave[ii-1],Flux[ii-1]/np.max(Flux[ii-1]))
+            plt.plot(wm,fm/np.max(fm),'ro')
             for j in range(wm.size):
                 plt.axvline(wm[j],color='r')
             plt.xlim(4200,5200)
-            plt.show()
-            '''
+            plt.savefig('figs/'+str(i)+'.wave.png')
+            plt.close()
             #wave[i],Flux[i],stretch[i],shift[i] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[i],shift[i],quad[i])
         f.write(str(FINAL_SLIT_X[i+1])+'\t')
         f.write(str(FINAL_SLIT_Y[i+1])+'\t')
