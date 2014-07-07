@@ -23,7 +23,7 @@ def query_galaxies(ra,dec):
         print 'Done with galaxy',i
 
     gal_sdss_data = np.array(gal_sdss_data)
-    S_df = pd.DataFrame(gal_sdss_data,columns=['#objID','SpecObjID','ra','dec','umag','gmag','rmag','imag','zmag','redshift','photo_z','extra'])
+    S_df = pd.DataFrame(gal_sdss_data,columns=['#objID','SpecObjID','ra','dec','umag','gmag','rmag','imag','zmag','spec_z','photo_z','extra'])
     return S_df
 
 
