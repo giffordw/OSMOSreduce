@@ -50,21 +50,21 @@ def gaussian_lines(line_x,line_a,xgrid,width=2.0):
         temp += gauss
     return temp
 
-def wavecalibrate(px,fx,stretch_est=None,shift_est=None,qu_es=None):
+def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     def prob2(x,x_p,F_p,w_m,F_m,st_es,sh_es,qu_es,interp,st_width=0.03,sh_width=75.0):
         #interp = interp1d(w_m,F_m,bounds_error=False,fill_value=0)
-        new_wave = x[3]*x_p**3 + x[2]*(x_p-2032.0)**2+x_p*x[0]+x[1]
+        new_wave = x[3]*(x_p-slit_x)**3 + x[2]*(x_p-slit_x)**2+(x_p)*x[0]+x[1]
         #interp = interpolate.splrep(x_p*x[0]+x[1],F_p,s=0)
         if x[0] < st_es - st_width or x[0] > st_es + st_width: P0 = -np.inf
         else: P0 = 0.0
         if x[1] < sh_es - sh_width or x[1] > sh_es + sh_width: P1 = -np.inf
         else: P1 = 0.0
-        if x[2] < -1e-5 or x[2] > 1e-5: P2 = -np.inf
+        if x[2] < -2e-5 or x[2] > 2e-5: P2 = -np.inf
         else: P2 = 0.0
-        if x[3] < -1e-11 or x[3] > 1e-11: P3 = -np.inf
+        if x[3] < -1e-10 or x[3] > 1e-10: P3 = -np.inf
         else: P3 = 0.0
         iwave = interp(new_wave)
-        corr =  spearmanr(F_p,iwave)[0] + P0 + P1 + P2 + P3 
+        corr =  spearmanr(F_p[np.where((new_wave>=3900)&(new_wave<=6000))],iwave[np.where((new_wave>=3900)&(new_wave<=6000))])[0] + P0 + P1 + P2 + P3 
         if np.isnan(corr): return -np.inf
         else: return -0.5 * (1.0 - corr) 
 
@@ -108,9 +108,8 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,qu_es=None):
     max_stretch,max_shift,max_quad,max_cube = sorted_chain[0]
     print 'First Pass'
     print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e'%(max_stretch,max_shift,max_quad,max_cube)
-    wave_new =  max_cube*px**3 + max_quad*(px-2032.0)**2+px*max_stretch + max_shift
-    pdb.set_trace()
-    '''
+    wave_new =  max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
+    
     #Second Pass
     p0 = np.vstack((np.random.uniform(max_stretch-0.005,max_stretch+0.005,nwalkers),np.random.uniform(-10,10,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
     sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,max_stretch,max_shift,max_quad,interp,0.01,10.0])
@@ -126,14 +125,15 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,qu_es=None):
     max_stretch,max_shift,max_quad,max_cube = sorted_chain[0]
     print 'Second Pass'
     print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e'%(max_stretch,max_shift,max_quad,max_cube)
-    wave_new =  max_cube*px**3 + max_quad*(px-2032.0)**2+px*max_stretch + max_shift
-    
+    wave_new =  max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
+    pdb.set_trace()
+    '''
     #Third Pass
     p0 = np.vstack((np.random.uniform(max_stretch-0.002,max_stretch+0.002,nwalkers),np.random.uniform(-3,3,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-1e-11,1e-11,nwalkers))).T
     sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es,interp,0.005,10.0])
     print 'Starting Main MCMC'
     start = time.time()
-    sampler.run_mcmc(p0,500)
+    sampler.run_mcmc(p0,1000)
     end = time.time()
     print 'MCMC time:',end - start
     total_chain = np.append(total_chain,sampler.flatchain,axis=0)
@@ -142,11 +142,13 @@ def wavecalibrate(px,fx,stretch_est=None,shift_est=None,qu_es=None):
     max_stretch,max_shift,max_quad,max_cube = sorted_chain[0]
     print 'Third Pass'
     print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e   Max_cube: %e'%(max_stretch,max_shift,max_quad,max_cube)
-    wave_new =  max_cube*px**3 + max_quad*(px-2032.0)**2+px*max_stretch + max_shift
+    wave_new =  max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
+    
+    pdb.set_trace()
     '''
     return (wave_new,fx,max_cube,max_quad,max_stretch,max_shift)
 
-def interactive_plot(px,fx,stretch_0,shift_0,quad_0):
+def interactive_plot(px,fx,stretch_0,shift_0,quad_0,slit_x):
     #flip and normalize flux
     fx = fx - np.min(fx)
     fx = fx[::-1]
@@ -157,7 +159,7 @@ def interactive_plot(px,fx,stretch_0,shift_0,quad_0):
     
     fig,ax = plt.subplots()
     plt.subplots_adjust(left=0.25,bottom=0.30)
-    l, = plt.plot(quad_0*(px-2032)**2+stretch_0*px+shift_0,fx/10.0,'b')
+    l, = plt.plot(quad_0*(px-slit_x)**2 + stretch_0*(px) + shift_0,fx/10.0,'b')
     plt.plot(wm,fm/2.0,'ro')
     for i in range(wm.size): plt.axvline(wm[i],color='r')
     plt.xlim(4000,6000)
@@ -175,17 +177,17 @@ def interactive_plot(px,fx,stretch_0,shift_0,quad_0):
     close_ax = plt.axes([0.05,0.5,0.13,0.1])
 
     slide_stretch = Slider(axstretch, 'Stretch',0.4,1.3,valinit=stretch_0)
-    slide_shift = Slider(axshift,'Shift',-4000.0,4000.0,valinit=shift_0)
+    slide_shift = Slider(axshift,'Shift',-2000.0,6000.0,valinit=shift_0)
     fn_slide_stretch = Slider(fn_axstretch, 'Fine Stretch',-0.05,0.05,valinit=fn_stretch_0)
     fn_slide_shift = Slider(fn_axshift,'Fine Shift',-200.0,200.0,valinit=fn_shift_0)
     fn_slide_quad = Slider(fn_axquad,'Fine Quad',-4e-5,4e-5,valinit=fn_quad_0)
     close_button = Button(close_ax,'Close Plots', hovercolor='0.80')
 
     def update(val):
-        l.set_xdata((quad_0+fn_slide_quad.val)*(px-2032.0)**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata((quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px)+(slide_shift.val+fn_slide_shift.val))
         fig.canvas.draw_idle()
     def fineupdate(val):
-        l.set_xdata((quad_0+fn_slide_quad.val)*(px-2032.0)**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata((quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px)+(slide_shift.val+fn_slide_shift.val))
         #slide_stretch.val = slide_stretch.val + fn_slide_stretch.val
         #slide_shift.val = slide_shift.val + fn_slide_shift.val
         fig.canvas.draw_idle()

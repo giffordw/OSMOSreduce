@@ -416,8 +416,8 @@ if reassign == 'n':
             f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[ii]-Gal_dat.SLIT_WIDTH[ii]/2.0:Gal_dat.FINAL_SLIT_Y[ii]+Gal_dat.SLIT_WIDTH[ii]/2.0,:],axis=0)
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' 4500 '+str(Gal_dat.SLIT_WIDTH[ii])+') #color=green highlite=1}')
-            stretch_est[ii],shift_est[ii],quad_est[ii] = interactive_plot(p_x,f_x,0.70,0.0,0.0)
-            wave[ii],Flux[ii],cube[ii],quad[ii],stretch[ii],shift[ii] = wavecalibrate(p_x,f_x,stretch_est[ii],shift_est[ii],quad_est[ii])
+            stretch_est[ii],shift_est[ii],quad_est[ii] = interactive_plot(p_x,f_x,0.70,0.0,0.0,Gal_dat.FINAL_SLIT_X[ii])
+            wave[ii],Flux[ii],cube[ii],quad[ii],stretch[ii],shift[ii] = wavecalibrate(p_x,f_x,Gal_dat.FINAL_SLIT_X[ii],stretch_est[ii],shift_est[ii],quad_est[ii])
             
             plt.plot(wave[ii],Flux[ii]/np.max(Flux[ii]))
             plt.plot(wm,fm/np.max(fm),'ro')
@@ -446,10 +446,10 @@ if reassign == 'n':
             f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[i])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[i])+' 4500 '+str(Gal_dat.SLIT_WIDTH[i])+') #color=green highlite=1}')
-            stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]+(Gal_dat.FINAL_SLIT_X[i]*stretch_est[0]-Gal_dat.FINAL_SLIT_X[i-1]*stretch_est[i-1]),quad[i-1])
+            stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]+(Gal_dat.FINAL_SLIT_X[i]*stretch_est[0]-Gal_dat.FINAL_SLIT_X[i-1]*stretch_est[i-1]),quad[i-1],Gal_dat.FINAL_SLIT_X[i])
     for i in range(ii,stretch.size):
         if Gal_dat.good_spectra[i] == 'y':
-            wave[i],Flux[i],cube[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,stretch_est[i],shift_est[i],quad_est[i])
+            wave[i],Flux[i],cube[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,Gal_dat.FINAL_SLIT_X[i],stretch_est[i],shift_est[i],quad_est[i])
             plt.plot(wave[ii],Flux[ii]/np.max(Flux[ii]))
             plt.plot(wm,fm/np.max(fm),'ro')
             for j in range(wm.size):
@@ -472,7 +472,7 @@ else:
     #FINAL_SLIT_Y = np.append(FINAL_SLIT_Y[0],yslit)
     #SLIT_WIDTH = np.append(SLIT_WIDTH[0],wd)
     for i in range(stretch.size):
-        wave[i] = cube[i]*np.arange(0,4064,1)**3 + quad[i]*(np.arange(0,4064,1)-2032.0)**2 + stretch[i]*np.arange(0,4064,1) + shift[i]
+        wave[i] = cube[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X[i])**3 + quad[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X[i])**2 + stretch[i]*(np.arange(0,4064,1)) + shift[i]
 
 #summed science slits + filtering to see spectra
 Flux_science = np.array([signal.medfilt(np.sum(scifits_c2.data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)[::-1],11) for i in range(len(Gal_dat))])
