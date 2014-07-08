@@ -9,6 +9,7 @@ from scipy.interpolate import interp1d
 import pdb
 import pandas as pd
 import time
+from scipy import signal
 
 def air_to_vacuum(airwl,nouvconv=True):
     """
@@ -53,7 +54,7 @@ def gaussian_lines(line_x,line_a,xgrid,width=2.0):
 def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     def prob2(x,x_p,F_p,w_m,F_m,st_es,sh_es,qu_es,interp,st_width=0.03,sh_width=75.0):
         #interp = interp1d(w_m,F_m,bounds_error=False,fill_value=0)
-        new_wave = x[3]*(x_p-slit_x)**3 + x[2]*(x_p-slit_x)**2+(x_p)*x[0]+x[1]
+        new_wave = x[4]*(x_p-slit_x)**4 + x[3]*(x_p-slit_x)**3 + x[2]*(x_p-slit_x)**2+(x_p)*x[0]+x[1]
         #interp = interpolate.splrep(x_p*x[0]+x[1],F_p,s=0)
         if x[0] < st_es - st_width or x[0] > st_es + st_width: P0 = -np.inf
         else: P0 = 0.0
@@ -63,14 +64,17 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
         else: P2 = 0.0
         if x[3] < -1e-10 or x[3] > 1e-10: P3 = -np.inf
         else: P3 = 0.0
+        if x[4] < -9e-12 or x[4] > 9e-12: P4 = -np.inf
+        else: P4 = 0.0
         iwave = interp(new_wave)
-        corr =  spearmanr(F_p[np.where((new_wave>=3900)&(new_wave<=6000))],iwave[np.where((new_wave>=3900)&(new_wave<=6000))])[0] + P0 + P1 + P2 + P3 
+        corr =  spearmanr(F_p[np.where((new_wave>=3900)&(new_wave<=6000))],iwave[np.where((new_wave>=3900)&(new_wave<=6000))])[0] + P0 + P1 + P2 + P3 + P4
         if np.isnan(corr): return -np.inf
         else: return -0.5 * (1.0 - corr) 
 
     #flip and normalize flux
     fx = fx - np.min(fx)
     fx = fx[::-1]
+    fx = fx/signal.medfilt(fx,201)
 
     #prep calibration lines into 1d spectra
     wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
@@ -85,11 +89,11 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
         qu_es = 1e-6
     
     #MCMC
-    ndim,nwalkers = 4,100
+    ndim,nwalkers = 5,100
     sstart = time.time()
     
     #First Pass
-    p0 = np.vstack((np.random.uniform(stretch_est-0.01,stretch_est+0.01,nwalkers),np.random.uniform(-50,50,nwalkers)+shift_est,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
+    p0 = np.vstack((np.random.uniform(stretch_est-0.01,stretch_est+0.01,nwalkers),np.random.uniform(-50,50,nwalkers)+shift_est,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
     sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es,interp])
     print 'Stepping MCMC'
     start = time.time()
@@ -105,13 +109,13 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     total_chain = sampler.flatchain
     total_lnprob = sampler.flatlnprobability
     sorted_chain = sampler.flatchain[np.argsort(sampler.flatlnprobability)[::-1]]
-    max_stretch,max_shift,max_quad,max_cube = sorted_chain[0]
+    max_stretch,max_shift,max_quad,max_cube,max_fourth = sorted_chain[0]
     print 'First Pass'
-    print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e'%(max_stretch,max_shift,max_quad,max_cube)
-    wave_new =  max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
+    print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e   Max_fourth: %e'%(max_stretch,max_shift,max_quad,max_cube,max_fourth)
+    wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
     
     #Second Pass
-    p0 = np.vstack((np.random.uniform(max_stretch-0.005,max_stretch+0.005,nwalkers),np.random.uniform(-10,10,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
+    p0 = np.vstack((np.random.uniform(max_stretch-0.005,max_stretch+0.005,nwalkers),np.random.uniform(-10,10,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
     sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,max_stretch,max_shift,max_quad,interp,0.01,10.0])
     print 'Starting Main MCMC'
     start = time.time()
@@ -122,10 +126,10 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     total_chain = np.append(total_chain,sampler.flatchain,axis=0)
     total_lnprob = np.append(total_lnprob,sampler.flatlnprobability)
     sorted_chain = total_chain[np.argsort(total_lnprob)[::-1]]
-    max_stretch,max_shift,max_quad,max_cube = sorted_chain[0]
+    max_stretch,max_shift,max_quad,max_cube,max_fourth = sorted_chain[0]
     print 'Second Pass'
-    print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e'%(max_stretch,max_shift,max_quad,max_cube)
-    wave_new =  max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
+    print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e   Max_fourth: %e'%(max_stretch,max_shift,max_quad,max_cube,max_fourth)
+    wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
     pdb.set_trace()
     '''
     #Third Pass
