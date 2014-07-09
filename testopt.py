@@ -67,7 +67,7 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
         if x[4] < -9e-12 or x[4] > 9e-12: P4 = -np.inf
         else: P4 = 0.0
         iwave = interp(new_wave)
-        corr =  spearmanr(F_p[np.where((new_wave>=3900)&(new_wave<=6000))],iwave[np.where((new_wave>=3900)&(new_wave<=6000))])[0] + P0 + P1 + P2 + P3 + P4
+        corr =  spearmanr(np.log(F_p[np.where((new_wave>=3900)&(new_wave<=5000))]),np.log(iwave[np.where((new_wave>=3900)&(new_wave<=5000))]+1))[0] + P0 + P1 + P2 + P3 + P4
         if np.isnan(corr): return -np.inf
         else: return -0.5 * (1.0 - corr) 
 
@@ -130,27 +130,24 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     print 'Second Pass'
     print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e   Max_fourth: %e'%(max_stretch,max_shift,max_quad,max_cube,max_fourth)
     wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
-    pdb.set_trace()
-    '''
+    
     #Third Pass
-    p0 = np.vstack((np.random.uniform(max_stretch-0.002,max_stretch+0.002,nwalkers),np.random.uniform(-3,3,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-1e-11,1e-11,nwalkers))).T
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es,interp,0.005,10.0])
+    p0 = np.vstack((np.random.uniform(max_stretch-0.001,max_stretch+0.001,nwalkers),np.random.uniform(-2,2,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-1e-12,1e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
+    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es,interp,0.003,5.0])
     print 'Starting Main MCMC'
     start = time.time()
-    sampler.run_mcmc(p0,1000)
+    sampler.run_mcmc(p0,500)
     end = time.time()
     print 'MCMC time:',end - start
     total_chain = np.append(total_chain,sampler.flatchain,axis=0)
     total_lnprob = np.append(total_lnprob,sampler.flatlnprobability)
     sorted_chain = total_chain[np.argsort(total_lnprob)[::-1]]
-    max_stretch,max_shift,max_quad,max_cube = sorted_chain[0]
+    max_stretch,max_shift,max_quad,max_cube,max_fourth = sorted_chain[0]
     print 'Third Pass'
-    print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e   Max_cube: %e'%(max_stretch,max_shift,max_quad,max_cube)
-    wave_new =  max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
+    print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e   Max_cube: %e   Max_fourth: %e'%(max_stretch,max_shift,max_quad,max_cube,max_fourth)
+    wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
     
-    pdb.set_trace()
-    '''
-    return (wave_new,fx,max_cube,max_quad,max_stretch,max_shift)
+    return (wave_new,fx,max_fourth,max_cube,max_quad,max_stretch,max_shift)
 
 def interactive_plot(px,fx,stretch_0,shift_0,quad_0,slit_x):
     #flip and normalize flux
