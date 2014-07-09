@@ -5,8 +5,11 @@ import emcee
 from matplotlib.widgets import Slider, Button, RadioButtons
 from scipy.stats import spearmanr
 from scipy.optimize import minimize
-from scipy import interpolate
+from scipy.interpolate import interp1d
 import pdb
+import pandas as pd
+import time
+from scipy import signal
 
 def air_to_vacuum(airwl,nouvconv=True):
     """
@@ -37,117 +40,127 @@ def air_to_vacuum(airwl,nouvconv=True):
         newwl[:] *= convfact
     return newwl[0] if isscal else newwl
 
-def wavecalibrate(px,fx,stretch_est=None,shift_est=None,quad_est=None,parnum=2):
-    def prob1(x,x_p,F_p,w_m,F_m,st_es,sh_es,qu_es):
-        interp = interp1d(qu_es*(x_p-2032.0)**2+x_p*x[0]+x[1],F_p,bounds_error=False,fill_value=0)
-        #interp = interpolate.splrep(x_p*x[0]+x[1],F_p,s=0)
-        if np.abs(sh_es - x[1]) > 10: P0 = -np.inf
-        else: P0 = 0.0
-        if np.abs(st_es - x[0]) > 0.010: P1 = -np.inf
-        else: P1 = 0.0
-        return np.sum(F_m[np.where((w_m>4000)&(w_m<5300))]+interp(w_m[np.where((w_m>4000)&(w_m<5300))])) + P0 + P1
-        #return np.sum(interp(w_m[np.where((w_m>4300)&(w_m<5300))])/F_m[np.where((w_m>4300)&(w_m<5300))])
-        #return np.sum(F_m[np.where((w_m>4300)&(w_m<5300))]+interpolate.splev(w_m[np.where((w_m>4300)&(w_m<5300))],interp,der=0))
-        #return spearmanr(F_m[np.where((w_m>4300)&(w_m<5300))],interp(w_m[np.where((w_m>4300)&(w_m<5300))]))[0] + P0 + P1 #+ np.sum(F_m[np.where((w_m>4300)&(w_m<5300))]/np.max(F_m[np.where((w_m>4300)&(w_m<5300))])+interp(w_m[np.where((w_m>4300)&(w_m<5300))])/np.max(interp(w_m[np.where((w_m>4300)&(w_m<5300))])))
-    def prob2(x,x_p,F_p,w_m,F_m,st_es,sh_es,qu_es):
-        interp = interp1d(x[0]*x_p**2+x_p*x[1]+x[2],F_p,bounds_error=False,fill_value=0)
-        #interp = interpolate.splrep(x_p*x[0]+x[1],F_p,s=0)
-        if np.abs(sh_es - x[1]) > 10: P0 = -np.inf
-        else: P0 = 0.0
-        if np.abs(st_es - x[0]) > 0.010: P1 = -np.inf
-        else: P1 = 0.0
-        return np.sum(F_m[np.where((w_m>4000)&(w_m<5300))]+interp(w_m[np.where((w_m>4000)&(w_m<5300))])) + P0 + P1
+def gaussian_lines(line_x,line_a,xgrid,width=2.0):
+    '''
+    Creates ideal Xenon spectrum
+    '''
+    #print 'Creating ideal calibration spectrum'
+    temp = np.zeros(xgrid.size)
+    for i in range(line_a.size):
+        gauss = line_a[i]*np.exp(-(xgrid-line_x[i])**2/(2*width**2))
+        temp += gauss
+    return temp
 
-    fx = fx[::-1]
+def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
+    def prob2(x,x_p,F_p,w_m,F_m,st_es,sh_es,qu_es,interp,st_width=0.03,sh_width=75.0):
+        #interp = interp1d(w_m,F_m,bounds_error=False,fill_value=0)
+        new_wave = x[4]*(x_p-slit_x)**4 + x[3]*(x_p-slit_x)**3 + x[2]*(x_p-slit_x)**2+(x_p)*x[0]+x[1]
+        #interp = interpolate.splrep(x_p*x[0]+x[1],F_p,s=0)
+        if x[0] < st_es - st_width or x[0] > st_es + st_width: P0 = -np.inf
+        else: P0 = 0.0
+        if x[1] < sh_es - sh_width or x[1] > sh_es + sh_width: P1 = -np.inf
+        else: P1 = 0.0
+        if x[2] < -2e-5 or x[2] > 2e-5: P2 = -np.inf
+        else: P2 = 0.0
+        if x[3] < -1e-10 or x[3] > 1e-10: P3 = -np.inf
+        else: P3 = 0.0
+        if x[4] < -9e-12 or x[4] > 9e-12: P4 = -np.inf
+        else: P4 = 0.0
+        iwave = interp(new_wave)
+        corr =  spearmanr(np.log(F_p[np.where((new_wave>=3900)&(new_wave<=5000))]),np.log(iwave[np.where((new_wave>=3900)&(new_wave<=5000))]+1))[0] + P0 + P1 + P2 + P3 + P4
+        if np.isnan(corr): return -np.inf
+        else: return -0.5 * (1.0 - corr) 
+
+    #flip and normalize flux
     fx = fx - np.min(fx)
+    fx = fx[::-1]
+    fx = fx/signal.medfilt(fx,201)
+
+    #prep calibration lines into 1d spectra
     wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
     wm = air_to_vacuum(wm)
+    xgrid = np.arange(0.0,6800.0,0.01)
+    lines_gauss = gaussian_lines(wm,fm,xgrid)
+    interp = interp1d(xgrid,lines_gauss,bounds_error=False,fill_value=0)
 
-    if stretch_est is None or stretch_est is not None:
-        if stretch_est is not None:
-            stretch_0 = stretch_est
-            shift_0 = shift_est
-            quad_0 = quad_est
-        else:
-            stretch_0 = 0.68
-            shift_0 = 0.0
-            quad_0 = 1e-5
-        print stretch_0,shift_0
-        stretch_est,shift_est,quad_est = interactive_plot(px,fx,wm,fm,stretch_0,shift_0,quad_0)
+    if stretch_est is None:
+        stretch_est = 0.68
+        shift_est = 0.0
+        qu_es = 1e-6
     
-    if parnum == 2:
-        print 'Running linear fit'
-        ndim,nwalkers = 2,10
-        p0 = np.vstack((np.random.uniform(stretch_est-0.04,stretch_est+0.04,nwalkers),np.random.uniform(-10,10,nwalkers)+shift_est)).T
-        sampler = emcee.EnsembleSampler(nwalkers,ndim,prob1,args=[px,fx,wm,fm,stretch_est,shift_est,quad_est])
-        print 'Stepping MCMC'
-        pos, prob, state = sampler.run_mcmc(p0,500)
-        sampler.reset()
-        sampler.run_mcmc(pos,3000,rstate0=state)
-        (n_stretch,bins_stretch) = np.histogram(sampler.flatchain[:,0],100)
-        midbins_stretch = (bins_stretch[:-1]+bins_stretch[1:])/2.0
-        max_stretch = midbins_stretch[np.where(n_stretch==np.max(n_stretch))]
-        (n_shift,bins_shift) = np.histogram(sampler.flatchain[:,1],100)
-        midbins_shift = (bins_shift[:-1]+bins_shift[1:])/2.0
-        max_shift = midbins_shift[np.where(n_shift==np.max(n_shift))]
-        print 'Shift:',max_shift,'Stretch:',max_stretch
-
-    if parnum == 3:
-        print 'Running quadratic fit'
-        ndim,nwalkers = 3,10
-        p0 = np.vstack((np.random.uniform(1e-6,1e-5,nwalkers),np.random.uniform(stretch_est-0.005,stretch_est+0.005,nwalkers),np.random.uniform(-5,5,nwalkers)+shift_est)).T
-        print 'stretch_est',stretch_est
-        sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,wm,fm,stretch_est,shift_est,quad_est])
-        print 'Stepping MCMC'
-        pos, prob, state = sampler.run_mcmc(p0,1000)
-        sampler.reset()
-        sampler.run_mcmc(pos,6000,rstate0=state)
-        (n_quad,bins_quad) = np.histogram(sampler.flatchain[:,0],100)
-        midbins_quad = (bins_quad[:-1]+bins_quad[1:])/2.0
-        max_quad = midbins_quad[np.where(n_quad==np.max(n_quad))]
-        (n_stretch,bins_stretch) = np.histogram(sampler.flatchain[:,1],100)
-        midbins_stretch = (bins_stretch[:-1]+bins_stretch[1:])/2.0
-        max_stretch = midbins_stretch[np.where(n_stretch==np.max(n_stretch))]
-        (n_shift,bins_shift) = np.histogram(sampler.flatchain[:,2],100)
-        midbins_shift = (bins_shift[:-1]+bins_shift[1:])/2.0
-        max_shift = midbins_shift[np.where(n_shift==np.max(n_shift))]
-        plt.hist(sampler.flatchain[:,1],100)
-        plt.show()
-        print 'Quad:',max_quad,'Shift:',max_shift,'Stretch:',max_stretch
+    #MCMC
+    ndim,nwalkers = 5,100
+    sstart = time.time()
     
-    xs = np.linspace(shift_est - 100.0,shift_est + 100.0,1000)
-    xs2 = np.linspace(stretch_est - 0.05, stretch_est + 0.05,1000)
-    test = np.zeros(1000)
-    test2 = np.zeros(1000)
-    for i in range(1000):
-        interp = interp1d(px*stretch_est+xs[i],fx,bounds_error=False,fill_value=0)
-        test[i] = np.sum(interp(wm[np.where((wm>4300)&(wm<5300))])+fm[np.where((wm>4300)&(wm<5300))])
-        #test[i] = spearmanr(fm[np.where((wm>4300)&(wm<5300))],interp(wm[np.where((wm>4300)&(wm<5300))]))[0]
-    #s = plt.figure()
-    #ax = s.add_subplot(211)
-    #ax.plot(xs,test)
-    #ax.axvline(max_shift,color='r')
-    #ax2 = s.add_subplot(212)
-    #ax2.plot(xs2,test)
-    #ax2.axvline(max_stretch,color='r')
-    #plt.axvline(scimin['x'],color='g')
-    #plt.show()
-    #pdb.set_trace()
+    #First Pass
+    p0 = np.vstack((np.random.uniform(stretch_est-0.01,stretch_est+0.01,nwalkers),np.random.uniform(-50,50,nwalkers)+shift_est,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
+    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es,interp])
+    print 'Stepping MCMC'
+    start = time.time()
+    pos, prob, state = sampler.run_mcmc(p0,100)
+    end = time.time()
+    print 'Burn in time:',end - start
+    sampler.reset()
+    print 'Starting Main MCMC'
+    start = time.time()
+    sampler.run_mcmc(pos,500,rstate0=state)
+    end = time.time()
+    print 'MCMC time:',end - start
+    total_chain = sampler.flatchain
+    total_lnprob = sampler.flatlnprobability
+    sorted_chain = sampler.flatchain[np.argsort(sampler.flatlnprobability)[::-1]]
+    max_stretch,max_shift,max_quad,max_cube,max_fourth = sorted_chain[0]
+    print 'First Pass'
+    print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e   Max_fourth: %e'%(max_stretch,max_shift,max_quad,max_cube,max_fourth)
+    wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
     
-    #if parnum == 3:
-    #    if max_quad.size > 1: max_quad = max_quad[np.floor(max_quad.size/2.0)]
-    if max_stretch.size > 1: max_stretch = max_stretch[np.floor(max_stretch.size/2.0)]
-    if max_shift.size > 1: max_shift = max_shift[np.floor(max_shift.size/2.0)]
+    #Second Pass
+    p0 = np.vstack((np.random.uniform(max_stretch-0.005,max_stretch+0.005,nwalkers),np.random.uniform(-10,10,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
+    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,max_stretch,max_shift,max_quad,interp,0.01,10.0])
+    print 'Starting Main MCMC'
+    start = time.time()
+    sampler.run_mcmc(p0,500)
+    end = time.time()
+    print 'MCMC time:',end - start
+    print 'Total Time:%.2f minutes'%(time.time() - sstart)
+    total_chain = np.append(total_chain,sampler.flatchain,axis=0)
+    total_lnprob = np.append(total_lnprob,sampler.flatlnprobability)
+    sorted_chain = total_chain[np.argsort(total_lnprob)[::-1]]
+    max_stretch,max_shift,max_quad,max_cube,max_fourth = sorted_chain[0]
+    print 'Second Pass'
+    print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e   Max_fourth: %e'%(max_stretch,max_shift,max_quad,max_cube,max_fourth)
+    wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
+    
+    #Third Pass
+    p0 = np.vstack((np.random.uniform(max_stretch-0.001,max_stretch+0.001,nwalkers),np.random.uniform(-2,2,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-1e-12,1e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
+    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es,interp,0.003,5.0])
+    print 'Starting Main MCMC'
+    start = time.time()
+    sampler.run_mcmc(p0,500)
+    end = time.time()
+    print 'MCMC time:',end - start
+    total_chain = np.append(total_chain,sampler.flatchain,axis=0)
+    total_lnprob = np.append(total_lnprob,sampler.flatlnprobability)
+    sorted_chain = total_chain[np.argsort(total_lnprob)[::-1]]
+    max_stretch,max_shift,max_quad,max_cube,max_fourth = sorted_chain[0]
+    print 'Third Pass'
+    print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e   Max_cube: %e   Max_fourth: %e'%(max_stretch,max_shift,max_quad,max_cube,max_fourth)
+    wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
+    
+    return (wave_new,fx,max_fourth,max_cube,max_quad,max_stretch,max_shift)
 
-    #if parnum == 2:
-    #    return (px*max_stretch+max_shift,fx,max_stretch,max_shift)#(px*max_stretch+scimin['x'],fx,max_stretch,scimin['x'])
-    #if parnum == 3:
-    return (quad_est*(px-2032.0)**2 + px*max_stretch + max_shift,fx,quad_est,max_stretch,max_shift)#(px*max_stretch+scimin['x'],fx,max_stretch,scimin['x'])
+def interactive_plot(px,fx,stretch_0,shift_0,quad_0,slit_x):
+    #flip and normalize flux
+    fx = fx - np.min(fx)
+    fx = fx[::-1]
 
-def interactive_plot(px,fx,wm,fm,stretch_0,shift_0,quad_0):
+    #prep calibration lines into 1d spectra
+    wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
+    wm = air_to_vacuum(wm)
+    
     fig,ax = plt.subplots()
     plt.subplots_adjust(left=0.25,bottom=0.30)
-    l, = plt.plot(quad_0*(px-2032)**2+stretch_0*px+shift_0,fx/10.0,'b')
+    l, = plt.plot(quad_0*(px-slit_x)**2 + stretch_0*(px) + shift_0,fx/10.0,'b')
     plt.plot(wm,fm/2.0,'ro')
     for i in range(wm.size): plt.axvline(wm[i],color='r')
     plt.xlim(4000,6000)
@@ -165,17 +178,17 @@ def interactive_plot(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     close_ax = plt.axes([0.05,0.5,0.13,0.1])
 
     slide_stretch = Slider(axstretch, 'Stretch',0.4,1.3,valinit=stretch_0)
-    slide_shift = Slider(axshift,'Shift',-4000.0,4000.0,valinit=shift_0)
+    slide_shift = Slider(axshift,'Shift',-2000.0,6000.0,valinit=shift_0)
     fn_slide_stretch = Slider(fn_axstretch, 'Fine Stretch',-0.05,0.05,valinit=fn_stretch_0)
     fn_slide_shift = Slider(fn_axshift,'Fine Shift',-200.0,200.0,valinit=fn_shift_0)
     fn_slide_quad = Slider(fn_axquad,'Fine Quad',-4e-5,4e-5,valinit=fn_quad_0)
     close_button = Button(close_ax,'Close Plots', hovercolor='0.80')
 
     def update(val):
-        l.set_xdata((quad_0+fn_slide_quad.val)*(px-2032.0)**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata((quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px)+(slide_shift.val+fn_slide_shift.val))
         fig.canvas.draw_idle()
     def fineupdate(val):
-        l.set_xdata((quad_0+fn_slide_quad.val)*(px-2032.0)**2+(slide_stretch.val+fn_slide_stretch.val)*px+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata((quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px)+(slide_shift.val+fn_slide_shift.val))
         #slide_stretch.val = slide_stretch.val + fn_slide_stretch.val
         #slide_shift.val = slide_shift.val + fn_slide_shift.val
         fig.canvas.draw_idle()
@@ -269,9 +282,9 @@ if __name__ == '__main__':
     xpos2 = 1500.0
     p_x = np.arange(0,4064,1)
     f_x = np.sum(data[1670:1705,:],axis=0)
-    wave,Flux,stretch,shift = wavecalibrate(p_x,f_x)
-    p_x2 = np.arange(0,4064,1) + 1000.0
-    wave2,Flux2,stretch2,shift2 = wavecalibrate(p_x2,f_x,stretch,shift-(xpos2*stretch-xpos*stretch))
+    wave,Flux,cube,quad,stretch,shift = wavecalibrate(p_x,f_x)
+    #p_x2 = np.arange(0,4064,1) + 1000.0
+    #wave2,Flux2,cube2,quad2,stretch2,shift2 = wavecalibrate(p_x2,f_x,stretch,shift-(xpos2*stretch-xpos*stretch),quad)
 
 
 
