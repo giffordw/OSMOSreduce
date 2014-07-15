@@ -435,7 +435,10 @@ if reassign == 'n':
             for j in range(wm.size):
                 plt.axvline(wm[j],color='r')
             plt.xlim(3800,5000)
-            plt.savefig('figs/'+str(ii)+'.wave.png')
+            try:
+                plt.savefig(clus_id+'/figs/'+str(ii)+'.wave.png')
+            except:
+                os.sys('mkdir '+clus_id+'/figs')
             plt.show()
             ii += 1
             break
