@@ -438,7 +438,7 @@ if reassign == 'n':
             try:
                 plt.savefig(clus_id+'/figs/'+str(ii)+'.wave.png')
             except:
-                os.sys('mkdir '+clus_id+'/figs')
+                os.mkdir(clus_id+'/figs')
             plt.show()
             ii += 1
             break
