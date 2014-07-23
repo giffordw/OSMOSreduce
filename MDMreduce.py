@@ -490,6 +490,7 @@ if reassign == 'n':
         f.write(str(fourth[i])+'\t')
         f.write(str(Gal_dat.SLIT_WIDTH[i])+'\t')
         f.write('\n')
+    f.close()
 else:
     xslit,yslit,shift,stretch,quad,cube,fourth,wd = np.loadtxt(clus_id+'/'+clus_id+'_stretchshift.tab',dtype='float',usecols=(0,1,2,3,4,5),unpack=True)
     #FINAL_SLIT_X = np.append(FINAL_SLIT_X[0],xslit)
@@ -511,21 +512,21 @@ Gal_dat['shift'],Gal_dat['stretch'],Gal_dat['quad'],Gal_dat['cube'],Gal_dat['fou
 #Redshift Calibrate#
 ####################
 early_type = pyfits.open('spDR2-023.fit')
-normal_type = pyfits.open('spDR2-024.fit')
-normal2_type = pyfits.open('spDR2-025.fit')
+#normal_type = pyfits.open('spDR2-024.fit')
+#normal2_type = pyfits.open('spDR2-025.fit')
 coeff0 = early_type[0].header['COEFF0']
 coeff1 = early_type[0].header['COEFF1']
-coeff0_2 = normal_type[0].header['COEFF0']
-coeff1_2 = normal_type[0].header['COEFF1']
-coeff0_3 = normal2_type[0].header['COEFF0']
-coeff1_3 = normal2_type[0].header['COEFF1']
+#coeff0_2 = normal_type[0].header['COEFF0']
+#coeff1_2 = normal_type[0].header['COEFF1']
+#coeff0_3 = normal2_type[0].header['COEFF0']
+#coeff1_3 = normal2_type[0].header['COEFF1']
 early_type_flux = early_type[0].data[0]/signal.medfilt(early_type[0].data[0],171)
 #early_type_flux = signal.medfilt(early_type[0].data[0],171)
-normal_type_flux = normal_type[0].data[0]
-normal2_type_flux = normal2_type[0].data[0]
+#normal_type_flux = normal_type[0].data[0]
+#normal2_type_flux = normal2_type[0].data[0]
 early_type_wave = 10**(coeff0 + coeff1*np.arange(0,early_type_flux.size,1))
-normal_type_wave = 10**(coeff0 + coeff1*np.arange(0,normal_type_flux.size,1))
-normal2_type_wave = 10**(coeff0 + coeff1*np.arange(0,normal2_type_flux.size,1))
+#normal_type_wave = 10**(coeff0 + coeff1*np.arange(0,normal_type_flux.size,1))
+#normal2_type_wave = 10**(coeff0 + coeff1*np.arange(0,normal2_type_flux.size,1))
 
 redshift_est = np.zeros(len(Gal_dat))
 redshift_est2 = np.zeros(len(Gal_dat))
