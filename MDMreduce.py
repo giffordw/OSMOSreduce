@@ -439,6 +439,7 @@ if reassign == 'n':
                 plt.savefig(clus_id+'/figs/'+str(ii)+'.wave.png')
             except:
                 os.mkdir(clus_id+'/figs')
+                plt.savefig(clus_id+'/figs/'+str(ii)+'.wave.png')
             plt.show()
             ii += 1
             break
@@ -481,7 +482,7 @@ if reassign == 'n':
             for j in range(wm.size):
                 plt.axvline(wm[j],color='r')
             plt.xlim(3800,5000)
-            plt.savefig('figs/'+str(i)+'.wave.png')
+            plt.savefig(clus_id+'/figs/'+str(i)+'.wave.png')
             plt.close()
             #wave[i],Flux[i],stretch[i],shift[i] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[i],shift[i],quad[i])
         f.write(str(Gal_dat.FINAL_SLIT_X_FLIP[i])+'\t')
