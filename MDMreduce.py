@@ -442,6 +442,15 @@ if reassign == 'n':
                 os.mkdir(clus_id+'/figs')
                 plt.savefig(clus_id+'/figs/'+str(ii)+'.wave.png')
             plt.show()
+            f.write(str(Gal_dat.FINAL_SLIT_X_FLIP[ii])+'\t')
+            f.write(str(Gal_dat.FINAL_SLIT_Y[ii])+'\t')
+            f.write(str(shift[ii])+'\t')
+            f.write(str(stretch[ii])+'\t')
+            f.write(str(quad[ii])+'\t')
+            f.write(str(cube[ii])+'\t')
+            f.write(str(fourth[ii])+'\t')
+            f.write(str(Gal_dat.SLIT_WIDTH[ii])+'\t')
+            f.write('\n')
             ii += 1
             break
             
@@ -497,7 +506,7 @@ if reassign == 'n':
         f.write('\n')
     f.close()
 else:
-    xslit,yslit,shift,stretch,quad,cube,fourth,wd = np.loadtxt(clus_id+'/'+clus_id+'_stretchshift.tab',dtype='float',usecols=(0,1,2,3,4,5),unpack=True)
+    xslit,yslit,shift,stretch,quad,cube,fourth,wd = np.loadtxt(clus_id+'/'+clus_id+'_stretchshift.tab',dtype='float',usecols=(0,1,2,3,4,5,6,7),unpack=True)
     #FINAL_SLIT_X = np.append(FINAL_SLIT_X[0],xslit)
     #FINAL_SLIT_Y = np.append(FINAL_SLIT_Y[0],yslit)
     #SLIT_WIDTH = np.append(SLIT_WIDTH[0],wd)
@@ -510,7 +519,11 @@ Flux_science = np.array([signal.medfilt(np.sum(scifits_c2.data[Gal_dat.FINAL_SLI
 
 #Add parameters to Dataframe
 Gal_dat['shift'],Gal_dat['stretch'],Gal_dat['quad'],Gal_dat['cube'],Gal_dat['fourth'] = shift,stretch,quad,cube,fourth
-
+'''
+Gal_dat = pd.read_csv(clus_id+'/results.csv',index_col=0)
+for i in range(Gal_dat.stretch.size):
+    wave[i] = Gal_dat.fourth[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**4 + Gal_dat.cube[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**3 + Gal_dat.quad[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + Gal_dat.stretch[i]*(np.arange(0,4064,1)) + Gal_dat['shift'][i]
+'''
 
 
 ####################
@@ -550,7 +563,13 @@ sdss_red = Gal_dat[Gal_dat.spec_z > 0.0].spec_z
 for k in range(len(Gal_dat)):
     pre_z_est = Gal_dat.photo_z[k]
 
-    Flux_sc = Flux_science[k]/signal.medfilt(Flux_science[k],171)
+    F1 = fftpack.rfft(Flux_science[k])
+    cut = F1.copy()
+    W = fftpack.fftfreq(wave[k].size,d=wave[k][1]-wave[k][0])
+    cut[np.where((W>.2)&(W<0.01))] = 0
+    Flux_science2 = fftpack.irfft(cut)
+
+    Flux_sc = Flux_science2/signal.medfilt(Flux_science2,171)
 
     if Gal_dat.slit_type[k] == 'g' and Gal_dat.spec_z[k] != 0.0:
         d.set('pan to 1150.0 '+str(Gal_dat.SLIT_Y[k])+' physical')
@@ -558,7 +577,7 @@ for k in range(len(Gal_dat)):
         redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
         fig = plt.figure()
         ax2 = fig.add_subplot(111)
-        pspec, = ax2.plot(wave[k],Flux_science[k])
+        pspec, = ax2.plot(wave[k],Flux_science2)
         ax2.axvline(3968.5*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
         ax2.axvline(3933.7*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
         ax2.axvline(4304.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
