@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 import emcee
 from matplotlib.widgets import Slider, Button, RadioButtons
-from scipy.stats import spearmanr
+from scipy.stats import spearmanr,pearsonr,kendalltau
 from scipy.optimize import minimize
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d,UnivariateSpline
 import pdb
 import pandas as pd
 import time
@@ -52,6 +52,7 @@ def gaussian_lines(line_x,line_a,xgrid,width=2.0):
     return temp
 
 def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
+    '''
     def prob2(x,x_p,F_p,w_m,F_m,st_es,sh_es,qu_es,interp,st_width=0.03,sh_width=75.0):
         #interp = interp1d(w_m,F_m,bounds_error=False,fill_value=0)
         new_wave = x[4]*(x_p-slit_x)**4 + x[3]*(x_p-slit_x)**3 + x[2]*(x_p-slit_x)**2+(x_p)*x[0]+x[1]
@@ -70,7 +71,7 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
         corr =  spearmanr(np.log(F_p[np.where((new_wave>=3900)&(new_wave<=5000))]),np.log(iwave[np.where((new_wave>=3900)&(new_wave<=5000))]+1))[0] + P0 + P1 + P2 + P3 + P4
         if np.isnan(corr): return -np.inf
         else: return -0.5 * (1.0 - corr) 
-
+    '''
     #flip and normalize flux
     fx = fx - np.min(fx)
     fx = fx[::-1]
@@ -82,11 +83,32 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     xgrid = np.arange(0.0,6800.0,0.01)
     lines_gauss = gaussian_lines(wm,fm,xgrid)
     interp = interp1d(xgrid,lines_gauss,bounds_error=False,fill_value=0)
+    #interp = UnivariateSpline(xgrid,lines_gauss)
 
     if stretch_est is None:
         stretch_est = 0.68
         shift_est = 0.0
         qu_es = 1e-6
+    
+    #@profile
+    def prob2(x,x_p,F_p,w_m,F_m,st_es,sh_es,qu_es,st_width=0.03,sh_width=75.0):
+        #interp = interp1d(w_m,F_m,bounds_error=False,fill_value=0)
+        new_wave = x[4]*(x_p-slit_x)**4 + x[3]*(x_p-slit_x)**3 + x[2]*(x_p-slit_x)**2+(x_p)*x[0]+x[1]
+        #interp = interpolate.splrep(x_p*x[0]+x[1],F_p,s=0)
+        if x[0] < st_es - st_width or x[0] > st_es + st_width: P0 = -np.inf
+        else: P0 = 0.0
+        if x[1] < sh_es - sh_width or x[1] > sh_es + sh_width: P1 = -np.inf
+        else: P1 = 0.0
+        if x[2] < -2e-5 or x[2] > 2e-5: P2 = -np.inf
+        else: P2 = 0.0
+        if x[3] < -1e-10 or x[3] > 1e-10: P3 = -np.inf
+        else: P3 = 0.0
+        if x[4] < -9e-12 or x[4] > 9e-12: P4 = -np.inf
+        else: P4 = 0.0
+        iwave = interp(new_wave)
+        corr =  pearsonr(np.log(F_p[np.where((new_wave>=3900)&(new_wave<=5000))]),np.log(iwave[np.where((new_wave>=3900)&(new_wave<=5000))]+1))[0] + P0 + P1 + P2 + P3 + P4
+        if np.isnan(corr): return -np.inf
+        else: return -0.5 * (1.0 - corr)
     
     #MCMC
     ndim,nwalkers = 5,100
@@ -94,7 +116,7 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     
     #First Pass
     p0 = np.vstack((np.random.uniform(stretch_est-0.01,stretch_est+0.01,nwalkers),np.random.uniform(-50,50,nwalkers)+shift_est,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es,interp])
+    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es])
     print 'Stepping MCMC'
     start = time.time()
     pos, prob, state = sampler.run_mcmc(p0,100)
@@ -116,7 +138,7 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     
     #Second Pass
     p0 = np.vstack((np.random.uniform(max_stretch-0.005,max_stretch+0.005,nwalkers),np.random.uniform(-10,10,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,max_stretch,max_shift,max_quad,interp,0.01,10.0])
+    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,max_stretch,max_shift,max_quad,0.01,10.0])
     print 'Starting Main MCMC'
     start = time.time()
     sampler.run_mcmc(p0,500)
@@ -133,7 +155,7 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     
     #Third Pass
     p0 = np.vstack((np.random.uniform(max_stretch-0.001,max_stretch+0.001,nwalkers),np.random.uniform(-2,2,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-1e-12,1e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es,interp,0.003,5.0])
+    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es,0.003,5.0])
     print 'Starting Main MCMC'
     start = time.time()
     sampler.run_mcmc(p0,500)
@@ -148,7 +170,7 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
     
     return (wave_new,fx,max_fourth,max_cube,max_quad,max_stretch,max_shift)
-
+    
 def interactive_plot(px,fx,stretch_0,shift_0,quad_0,slit_x):
     #flip and normalize flux
     fx = fx - np.min(fx)
@@ -282,7 +304,7 @@ if __name__ == '__main__':
     xpos2 = 1500.0
     p_x = np.arange(0,4064,1)
     f_x = np.sum(data[1670:1705,:],axis=0)
-    wave,Flux,cube,quad,stretch,shift = wavecalibrate(p_x,f_x)
+    wave,Flux,fourth,cube,quad,stretch,shift = wavecalibrate(p_x,f_x,1679.1503,0.7122818,2778.431)
     #p_x2 = np.arange(0,4064,1) + 1000.0
     #wave2,Flux2,cube2,quad2,stretch2,shift2 = wavecalibrate(p_x2,f_x,stretch,shift-(xpos2*stretch-xpos*stretch),quad)
 
