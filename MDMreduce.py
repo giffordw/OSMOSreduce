@@ -487,7 +487,7 @@ if reassign == 'n':
         if Gal_dat.good_spectra[i] == 'y':
             f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)
             wave[i],Flux[i],fourth[i],cube[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,Gal_dat.FINAL_SLIT_X_FLIP[i],stretch_est[i],shift_est[i],quad_est[i])
-            plt.plot(wave[ii],Flux[ii]/np.max(Flux[ii]))
+            plt.plot(wave[i],Flux[i]/np.max(Flux[i]))
             plt.plot(wm,fm/np.max(fm),'ro')
             for j in range(wm.size):
                 plt.axvline(wm[j],color='r')
@@ -565,9 +565,15 @@ for k in range(len(Gal_dat)):
 
     F1 = fftpack.rfft(Flux_science[k])
     cut = F1.copy()
-    W = fftpack.fftfreq(wave[k].size,d=wave[k][1]-wave[k][0])
-    cut[np.where((W>.2)&(W<0.01))] = 0
+    W = fftpack.rfftfreq(wave[k].size,d=wave[k][1]-wave[k][0])
+    cut[np.where(W>0.2)] = 0
     Flux_science2 = fftpack.irfft(cut)
+    '''
+    plt.plot(wave[k],Flux_science2)
+    plt.plot(wave[k],Flux_science[k],c='g',alpha=0.5)
+    plt.xlim(3900,5000)
+    plt.show()
+    '''
 
     Flux_sc = Flux_science2/signal.medfilt(Flux_science2,171)
 
@@ -592,7 +598,7 @@ for k in range(len(Gal_dat)):
             print 'Using prior given by user'
             figure = plt.figure()
             ax = figure.add_subplot(111)
-            spectra, = ax.plot(wave[k]/(1+redshift_est[k]),Flux_science[k])
+            spectra, = ax.plot(wave[k]/(1+redshift_est[k]),Flux_science2)
             ax.axvline(3968.5,ls='--',alpha=0.7,c='red')
             ax.axvline(3933.7,ls='--',alpha=0.7,c='red')
             ax.axvline(4304.0,ls='--',alpha=0.7,c='red')
@@ -601,7 +607,7 @@ for k in range(len(Gal_dat)):
             #ax.axvline(4304.0*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
             ax.set_xlim(3500,4600)
             print 'got to drag'
-            spectra2 = DragSpectra(spectra,Flux_science[k])
+            spectra2 = DragSpectra(spectra,Flux_science2)
             figure.canvas.mpl_connect('motion_notify_event',spectra2.on_motion)
             figure.canvas.mpl_connect('button_press_event',spectra2.on_press)
             figure.canvas.mpl_connect('button_release_event',spectra2.on_release)
