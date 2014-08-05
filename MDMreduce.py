@@ -451,6 +451,7 @@ if reassign == 'n':
             f.write(str(fourth[ii])+'\t')
             f.write(str(Gal_dat.SLIT_WIDTH[ii])+'\t')
             f.write('\n')
+            print 'Wave calib',ii
             ii += 1
             break
             
@@ -494,6 +495,7 @@ if reassign == 'n':
             plt.xlim(3800,5000)
             plt.savefig(clus_id+'/figs/'+str(i)+'.wave.png')
             plt.close()
+            print 'Wave calib',i
             #wave[i],Flux[i],stretch[i],shift[i] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[i],shift[i],quad[i])
         f.write(str(Gal_dat.FINAL_SLIT_X_FLIP[i])+'\t')
         f.write(str(Gal_dat.FINAL_SLIT_Y[i])+'\t')
@@ -514,8 +516,8 @@ else:
         wave[i] = fourth[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**4 + cube[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**3 + quad[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + stretch[i]*(np.arange(0,4064,1)) + shift[i]
 
 #summed science slits + filtering to see spectra
-Flux_science = np.array([signal.medfilt(np.sum(scifits_c2.data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)[::-1],11) for i in range(len(Gal_dat))])
-#Flux_science = np.array([np.sum(scifits_c2.data[FINAL_SLIT_Y[i+1]-SLIT_WIDTH[i+1]/2.0:FINAL_SLIT_Y[i+1]+SLIT_WIDTH[i+1]/2.0,:],axis=0)[::-1] for i in range(stretch.size)])
+#Flux_science = np.array([signal.medfilt(np.sum(scifits_c2.data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)[::-1],11) for i in range(len(Gal_dat))])
+Flux_science = np.array([np.sum(scifits_c2.data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)[::-1] for i in range(len(Gal_dat))])
 
 #Add parameters to Dataframe
 Gal_dat['shift'],Gal_dat['stretch'],Gal_dat['quad'],Gal_dat['cube'],Gal_dat['fourth'] = shift,stretch,quad,cube,fourth
@@ -566,7 +568,7 @@ for k in range(len(Gal_dat)):
     F1 = fftpack.rfft(Flux_science[k])
     cut = F1.copy()
     W = fftpack.rfftfreq(wave[k].size,d=wave[k][1]-wave[k][0])
-    cut[np.where(W>0.2)] = 0
+    cut[np.where(W>0.15)] = 0
     Flux_science2 = fftpack.irfft(cut)
     '''
     plt.plot(wave[k],Flux_science2)

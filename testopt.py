@@ -5,6 +5,7 @@ import emcee
 from matplotlib.widgets import Slider, Button, RadioButtons
 from scipy.stats import spearmanr,pearsonr,kendalltau
 from scipy.optimize import minimize
+from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d,UnivariateSpline
 import pdb
 import pandas as pd
@@ -52,26 +53,6 @@ def gaussian_lines(line_x,line_a,xgrid,width=2.0):
     return temp
 
 def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
-    '''
-    def prob2(x,x_p,F_p,w_m,F_m,st_es,sh_es,qu_es,interp,st_width=0.03,sh_width=75.0):
-        #interp = interp1d(w_m,F_m,bounds_error=False,fill_value=0)
-        new_wave = x[4]*(x_p-slit_x)**4 + x[3]*(x_p-slit_x)**3 + x[2]*(x_p-slit_x)**2+(x_p)*x[0]+x[1]
-        #interp = interpolate.splrep(x_p*x[0]+x[1],F_p,s=0)
-        if x[0] < st_es - st_width or x[0] > st_es + st_width: P0 = -np.inf
-        else: P0 = 0.0
-        if x[1] < sh_es - sh_width or x[1] > sh_es + sh_width: P1 = -np.inf
-        else: P1 = 0.0
-        if x[2] < -2e-5 or x[2] > 2e-5: P2 = -np.inf
-        else: P2 = 0.0
-        if x[3] < -1e-10 or x[3] > 1e-10: P3 = -np.inf
-        else: P3 = 0.0
-        if x[4] < -9e-12 or x[4] > 9e-12: P4 = -np.inf
-        else: P4 = 0.0
-        iwave = interp(new_wave)
-        corr =  spearmanr(np.log(F_p[np.where((new_wave>=3900)&(new_wave<=5000))]),np.log(iwave[np.where((new_wave>=3900)&(new_wave<=5000))]+1))[0] + P0 + P1 + P2 + P3 + P4
-        if np.isnan(corr): return -np.inf
-        else: return -0.5 * (1.0 - corr) 
-    '''
     #flip and normalize flux
     fx = fx - np.min(fx)
     fx = fx[::-1]
@@ -84,6 +65,82 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     lines_gauss = gaussian_lines(wm,fm,xgrid)
     interp = interp1d(xgrid,lines_gauss,bounds_error=False,fill_value=0)
     #interp = UnivariateSpline(xgrid,lines_gauss)
+
+    wave_est = qu_es*(px-slit_x)**2+(px)*stretch_est+shift_est
+    wm_in = wm[np.where((wm<wave_est.max())&(wm>wave_est.min()))]
+    px_max = np.zeros(wm_in.size)
+    for i in range(wm_in.size):
+        px_in = px[np.where((wave_est<wm_in[i]+5.0)&(wave_est>wm_in[i]-5))]
+        px_max[i] = px_in[fx[np.where((wave_est<wm_in[i]+5.0)&(wave_est>wm_in[i]-5))].argmax()]
+
+    def polyfour(x,a,b,c,d,e,f):
+        return a + b*x + c*x**2.0 + d*x**3.0 + e*x**4.0 + f*x**5.0
+
+    params,pcov = curve_fit(polyfour,(px_max-slit_x),wm_in,p0=[2000.0,0.70,1e-5,1e-8,1e-12,1e-12])
+    '''
+    def log_prior(theta):
+        #g_i needs to be between 0 and 1
+        if (all(theta > 0) and all(theta < 1)):
+            return 0
+        else:
+            return -np.inf  # recall log(0) = -inf
+
+    def log_likelihood(p, x, y, e):
+        dy = y - (p[0]+p[1]*x + p[2]*x*x + p[3]*x*x*x + p[4]*x*x*x*x + p[5]*x*x*x*x*x)
+        #g = np.clip(p[6:], 0, 1)  # g<0 or g>1 leads to NaNs in logarithm
+        logL1 = - 0.5 * np.log(2 * np.pi * e ** 2) - 0.5 * (dy / e) ** 2
+        #logL2 = - 0.5 * np.log(2 * np.pi * sigma_B ** 2) - 0.5 * (dy / sigma_B) ** 2
+        return np.sum(logL1)
+
+    def log_posterior(p, x, y, e):
+        return log_likelihood(p, x, y, e)
+    
+    #MCMC
+    ndim,nwalkers = 6,50
+    sstart = time.time()
+    p0 = np.column_stack((np.random.uniform(params[0]-50,params[0]+50,nwalkers),np.random.uniform(params[1]-0.01,params[1]+0.01,nwalkers),np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-6,5e-6,nwalkers),np.random.uniform(-5e-6,5e-6,nwalkers),np.random.uniform(-5e-6,5e-6,nwalkers)))
+    #p0 = np.random.rand(nwalkers,6+px_max.size)
+    #p0[:,0] = np.random.uniform(params[0]-100,params[0]+100,nwalkers)
+    #p0[:,1] = np.random.uniform(params[1]-0.01,params[1]+0.01,nwalkers)
+    sampler = emcee.EnsembleSampler(nwalkers,ndim,log_posterior,args=[px_max-slit_x,wm_in,5])
+    print 'Stepping MCMC'
+    start = time.time()
+    pos, prob, state = sampler.run_mcmc(p0,1000)
+    end = time.time()
+    print 'Burn in time:',end - start
+    sampler.reset()
+    print 'Starting Main MCMC'
+    start = time.time()
+    sampler.run_mcmc(pos,10000,rstate0=state)
+    end = time.time()
+    print 'MCMC time:',end - start
+    (n,bins) = np.histogram(sampler.flatchain[:,0],100)
+    mbins = (bins[1:]+bins[:-1])/2.0
+    param0 = mbins[n==n.max()]
+    (n,bins) = np.histogram(sampler.flatchain[:,1],100)
+    mbins = (bins[1:]+bins[:-1])/2.0
+    param1 = mbins[n==n.max()]
+    (n,bins) = np.histogram(sampler.flatchain[:,2],100)
+    mbins = (bins[1:]+bins[:-1])/2.0
+    param2 = mbins[n==n.max()]
+    (n,bins) = np.histogram(sampler.flatchain[:,3],100)
+    mbins = (bins[1:]+bins[:-1])/2.0
+    param3 = mbins[n==n.max()]
+    (n,bins) = np.histogram(sampler.flatchain[:,4],100)
+    mbins = (bins[1:]+bins[:-1])/2.0
+    param4 = mbins[n==n.max()]
+    (n,bins) = np.histogram(sampler.flatchain[:,5],100)
+    mbins = (bins[1:]+bins[:-1])/2.0
+    param5 = mbins[n==n.max()]
+    wave_mcmc = param0+param1*(px-slit_x)+param2*(px-slit_x)**2+param3*(px-slit_x)**3.0+param4*(px-slit_x)**4.0+param5*(px-slit_x)**5.0
+
+    
+    plt.plot(px_max-slit_x,wm_in,'ro',alpha=0.5,markersize=5)
+    plt.plot(px-slit_x,params[0]+params[1]*(px-slit_x)+params[2]*(px-slit_x)**2+params[3]*(px-slit_x)**3.0+params[4]*(px-slit_x)**4.0+params[5]*(px-slit_x)**5.0)
+    plt.show()
+    print params[1]
+    '''
+    
 
     if stretch_est is None:
         stretch_est = 0.68
@@ -110,12 +167,13 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
         if np.isnan(corr): return -np.inf
         else: return -0.5 * (1.0 - corr)
     
+    '''
     #MCMC
     ndim,nwalkers = 5,100
     sstart = time.time()
-    
     #First Pass
-    p0 = np.vstack((np.random.uniform(stretch_est-0.01,stretch_est+0.01,nwalkers),np.random.uniform(-50,50,nwalkers)+shift_est,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
+    #p0 = np.vstack((np.random.uniform(stretch_est-0.01,stretch_est+0.01,nwalkers),np.random.uniform(-50,50,nwalkers)+shift_est,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
+    p0 = np.column_stack((np.random.uniform(params[1]-0.01,params[1]+0.01,nwalkers),np.random.uniform(-50,50,nwalkers)+params[0],np.random.uniform(-1e-6,1e-6,nwalkers)+,np.random.uniform(-5e-12,5e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers)))
     sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es])
     print 'Stepping MCMC'
     start = time.time()
@@ -167,9 +225,13 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     max_stretch,max_shift,max_quad,max_cube,max_fourth = sorted_chain[0]
     print 'Third Pass'
     print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e   Max_cube: %e   Max_fourth: %e'%(max_stretch,max_shift,max_quad,max_cube,max_fourth)
-    wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
     
-    return (wave_new,fx,max_fourth,max_cube,max_quad,max_stretch,max_shift)
+    wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px-slit_x)*max_stretch + max_shift
+    '''
+    #return (wave_new,fx,max_fourth,max_cube,max_quad,max_stretch,max_shift)
+    
+    return (params[0]+params[1]*(px-slit_x)+params[2]*(px-slit_x)**2+params[3]*(px-slit_x)**3.0+params[4]*(px-slit_x)**4.0+params[5]*(px-slit_x)**5.0,fx,params[4],params[3],params[2],params[1],params[0])
+    #return (param0+param1*(px-slit_x)+param2*(px-slit_x)**2+param3*(px-slit_x)**3.0+param4*(px-slit_x)**4.0+param5*(px-slit_x)**5.0,fx,params[4],params[3],params[2],params[1],params[0])
     
 def interactive_plot(px,fx,stretch_0,shift_0,quad_0,slit_x):
     #flip and normalize flux
