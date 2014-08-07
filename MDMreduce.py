@@ -282,7 +282,7 @@ if reassign == 'n':
         print 'Galaxy at ',Gal_dat.RA[i],Gal_dat.DEC[i]
         d.set('regions command {box(2000 '+str(Gal_dat.SLIT_Y[i])+' 4500 40) #color=green highlite=1}')
         #raw_input('Once done: hit ENTER')
-        if i > 0:
+        if i >= 0:
             if Gal_dat.slit_type[i] == 'g' and Gal_dat.spec_z[i] != 0.0:
                 print 'Is this spectra good (y) or bad (n)?'
                 while True:
