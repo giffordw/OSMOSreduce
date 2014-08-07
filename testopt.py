@@ -230,7 +230,7 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     '''
     #return (wave_new,fx,max_fourth,max_cube,max_quad,max_stretch,max_shift)
     
-    return (params[0]+params[1]*(px-slit_x)+params[2]*(px-slit_x)**2+params[3]*(px-slit_x)**3.0+params[4]*(px-slit_x)**4.0+params[5]*(px-slit_x)**5.0,fx,params[4],params[3],params[2],params[1],params[0])
+    return (params[0]+params[1]*(px-slit_x)+params[2]*(px-slit_x)**2+params[3]*(px-slit_x)**3.0+params[4]*(px-slit_x)**4.0+params[5]*(px-slit_x)**5.0,fx,params[5],params[4],params[3],params[2],params[1],params[0])
     #return (param0+param1*(px-slit_x)+param2*(px-slit_x)**2+param3*(px-slit_x)**3.0+param4*(px-slit_x)**4.0+param5*(px-slit_x)**5.0,fx,params[4],params[3],params[2],params[1],params[0])
     
 def interactive_plot(px,fx,stretch_0,shift_0,quad_0,slit_x):
