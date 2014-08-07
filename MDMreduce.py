@@ -511,7 +511,7 @@ if reassign == 'n':
         f.write('\n')
     f.close()
 else:
-    xslit,yslit,shift,stretch,quad,cube,fourth,fifth,wd = np.loadtxt(clus_id+'/'+clus_id+'_stretchshift.tab',dtype='float',usecols=(0,1,2,3,4,5,6,7),unpack=True)
+    xslit,yslit,shift,stretch,quad,cube,fourth,fifth,wd = np.loadtxt(clus_id+'/'+clus_id+'_stretchshift.tab',dtype='float',usecols=(0,1,2,3,4,5,6,7,8),unpack=True)
     #FINAL_SLIT_X = np.append(FINAL_SLIT_X[0],xslit)
     #FINAL_SLIT_Y = np.append(FINAL_SLIT_Y[0],yslit)
     #SLIT_WIDTH = np.append(SLIT_WIDTH[0],wd)
