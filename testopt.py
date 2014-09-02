@@ -68,6 +68,7 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
 
     wave_est = qu_es*(px-slit_x)**2+(px)*stretch_est+shift_est
     wm_in = wm[np.where((wm<wave_est.max())&(wm>wave_est.min()))]
+    wm_in = wm[np.where((wm<5000.0)&(wm>wave_est.min()))]
     px_max = np.zeros(wm_in.size)
     for i in range(wm_in.size):
         px_in = px[np.where((wave_est<wm_in[i]+5.0)&(wave_est>wm_in[i]-5))]
