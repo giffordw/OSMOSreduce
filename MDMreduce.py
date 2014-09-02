@@ -570,7 +570,7 @@ for k in range(len(Gal_dat)):
 
     F1 = fftpack.rfft(Flux_science[k])
     cut = F1.copy()
-    W = fftpack.rfftfreq(wave[k].size,d=wave[k][1]-wave[k][0])
+    W = fftpack.rfftfreq(wave[k].size,d=wave[k][2001]-wave[k][2000])
     cut[np.where(W>0.15)] = 0
     Flux_science2 = fftpack.irfft(cut)
     '''
