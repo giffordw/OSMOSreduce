@@ -9,7 +9,6 @@ def redshift_estimate(z_est,early_type_wave,early_type_flux,wave,Flux_sc):
     ztest = np.linspace(0.02,0.35,5000)
     corr_val_i = np.zeros(ztest.size)
     for i in range(ztest.size):
-        ztest = np.linspace(0.02,0.35,5000)
         z = ztest[i]
         wshift = early_type_wave*(1+z)
         #wshift2 = normal_type_wave*(1+z)

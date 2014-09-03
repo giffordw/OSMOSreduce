@@ -567,6 +567,7 @@ sdss_elem = np.where(Gal_dat.spec_z > 0.0)[0]
 sdss_red = Gal_dat[Gal_dat.spec_z > 0.0].spec_z
 for k in range(len(Gal_dat)):
     pre_z_est = Gal_dat.photo_z[k]
+    pre_z_est = np.median(Gal_dat.spec_z[Gal_dat.spec_z > 0.0])
 
     F1 = fftpack.rfft(Flux_science[k])
     cut = F1.copy()
