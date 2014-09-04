@@ -6,7 +6,7 @@ from scipy.stats import norm
 
 def redshift_estimate(z_est,early_type_wave,early_type_flux,wave,Flux_sc):
     #Flux_sc = signal.medfilt(Flux_science[],171)
-    ztest = np.linspace(0.02,0.35,5000)
+    ztest = np.linspace(0.02,0.35,10000)
     corr_val_i = np.zeros(ztest.size)
     for i in range(ztest.size):
         z = ztest[i]

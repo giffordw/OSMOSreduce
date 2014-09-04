@@ -116,7 +116,7 @@ image_file = 'mosaic_r_C4_'+clus_id[-4:].lstrip('0')+'_image.fits' #define mosai
 sciencefiles = np.array([])
 hdulists_science = np.array([])
 for file in os.listdir('./'+clus_id+'/science/'): #search and import all science filenames
-    if fnmatch.fnmatch(file, '*xo.fits'):
+    if fnmatch.fnmatch(file, '*b.fits'):
         sciencefiles = np.append(sciencefiles,file)
         scifits = pyfits.open(clus_id+'/science/'+file)
         hdulists_science = np.append(hdulists_science,scifits)
@@ -126,13 +126,13 @@ naxis1 = hdulist_science[0].header['NAXIS1']
 naxis2 = hdulist_science[0].header['NAXIS2']
 
 #import sky data
-hdulist_sky = pyfits.open(clus_id+'/offset_sky/'+clus_id+'_offset.0001.xo.fits')
+hdulist_sky = pyfits.open(clus_id+'/offset_sky/'+clus_id+'_offset.0001b.fits')
 
 #import flat data
 flatfiles = np.array([])
 hdulists_flat = np.array([])
 for file in os.listdir('./'+clus_id+'/flats/'): #search and import all science filenames
-    if fnmatch.fnmatch(file, '*xo.fits'):
+    if fnmatch.fnmatch(file, '*b.fits'):
         flatfiles = np.append(flatfiles,file)
         flatfits = pyfits.open(clus_id+'/flats/'+file)
         hdulists_flat = np.append(hdulists_flat,flatfits)
@@ -141,7 +141,7 @@ for file in os.listdir('./'+clus_id+'/flats/'): #search and import all science f
 arcfiles = np.array([])
 hdulists_arc = np.array([])
 for file in os.listdir('./'+clus_id+'/arcs/'): #search and import all science filenames
-    if fnmatch.fnmatch(file, '*xo.fits'):
+    if fnmatch.fnmatch(file, '*b.fits'):
         arcfiles = np.append(arcfiles,file)
         arcfits = pyfits.open(clus_id+'/arcs/'+file)
         hdulists_arc = np.append(hdulists_arc,arcfits)
@@ -328,6 +328,7 @@ redo = 'n'
 if os.path.isfile(clus_id+'/science/'+clus_id+'_science.cr.fits'):
     redo = raw_input('Detected cosmic ray filtered file exists. Do you wish to use this (y) or remove and re-calculate (n)?')
 if redo == 'n':
+    #os.remove(clus_id+'/science/'+clus_id+'_science.cr.fits')
     scifits_c = copy.copy(hdulists_science[0]) #copy I will use to hold the smoothed and added results
     scifits_c.data *= 0.0
     print 'SCIENCE REDUCTION'
@@ -341,6 +342,7 @@ else:
 
 print 'SKY REDUCTION'
 if redo == 'n':
+    #os.remove(clus_id+'/offset_sky/'+clus_id+'_offset.cr.fits')
     skyfits_c = copy.copy(hdulist_sky)
     filt = filter_image(hdulist_sky[0].data)
     skyfits_c[0].data = filt + np.abs(np.nanmin(filt))
@@ -349,6 +351,7 @@ else: skyfits_c = pyfits.open(clus_id+'/offset_sky/'+clus_id+'_offset.cr.fits')
 
 print 'FLAT REDUCTION'
 if redo == 'n':
+    #os.remove(clus_id+'/flats/'+clus_id+'_flat.cr.fits')
     flatfits_c = copy.copy(hdulists_flat[0]) #copy I will use to hold the smoothed and added results
     flat_data = np.zeros((hdulists_flat.size,naxis1,naxis2))
     i = 0
@@ -362,10 +365,11 @@ else: flatfits_c = pyfits.open(clus_id+'/flats/'+clus_id+'_flat.cr.fits')[0]
 
 print 'ARC REDUCTION'
 if redo == 'n':
+    #os.remove(clus_id+'/arcs/'+clus_id+'_arc.cr.fits')
     arcfits_c = copy.copy(hdulists_arc[0]) #copy I will use to hold the smoothed and added results
     arcfits_c.data *= 0.0
     for arcfits in hdulists_arc:
-        filt = filter_image(arcfits.data)
+        filt = arcfits.data#filter_image(arcfits.data)
         arcfits_c.data += filt + np.abs(np.nanmin(filt))
     arcfits_c.writeto(clus_id+'/arcs/'+clus_id+'_arc.cr.fits')
 else: arcfits_c = pyfits.open(clus_id+'/arcs/'+clus_id+'_arc.cr.fits')[0]
@@ -543,7 +547,7 @@ coeff1 = early_type[0].header['COEFF1']
 #coeff1_2 = normal_type[0].header['COEFF1']
 #coeff0_3 = normal2_type[0].header['COEFF0']
 #coeff1_3 = normal2_type[0].header['COEFF1']
-early_type_flux = early_type[0].data[0]/signal.medfilt(early_type[0].data[0],171)
+early_type_flux = early_type[0].data[0] - signal.medfilt(early_type[0].data[0],171)
 #early_type_flux = signal.medfilt(early_type[0].data[0],171)
 #normal_type_flux = normal_type[0].data[0]
 #normal2_type_flux = normal2_type[0].data[0]
@@ -581,7 +585,7 @@ for k in range(len(Gal_dat)):
     plt.show()
     '''
 
-    Flux_sc = Flux_science2/signal.medfilt(Flux_science2,171)
+    Flux_sc = Flux_science2 - signal.medfilt(Flux_science2,171)
 
     if Gal_dat.slit_type[k] == 'g' and Gal_dat.spec_z[k] != 0.0:
         d.set('pan to 1150.0 '+str(Gal_dat.SLIT_Y[k])+' physical')
