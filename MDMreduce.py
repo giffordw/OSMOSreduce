@@ -105,6 +105,21 @@ for file in os.listdir('./'+clus_id+'/'): #search and import all mosaics
     if fnmatch.fnmatch(file, 'mosaic_*'):
         image_file = file
 
+#create reduced files if they don't exist
+def reduce_files(filetype):
+    for file in os.listdir('./'+clus_id+'/'+filetype+'/'):
+        if fnmatch.fnmatch(file, '*.????.fits'):
+            if not os.path.isfile(clus_id+'/'+filetype+'/'+file[:-5]+'b.fits'):
+                print 'Creating '+clus_id+'/'+filetype+'/'+file[:-5]+'b.fits'
+                p = subprocess.Popen('python proc4k.py '+clus_id+'/'+filetype+'/'+file,shell=True)
+                p.wait()
+            else:
+                print 'Reduced '+filetype+' files exist'
+
+filetypes = ['science','arcs','flats','offset_sky']
+for filetype in filetypes:
+    reduce_files(filetype)
+
 #import, clean, and add science fits files
 sciencefiles = np.array([])
 hdulists_science = np.array([])
@@ -119,7 +134,9 @@ naxis1 = hdulist_science[0].header['NAXIS1']
 naxis2 = hdulist_science[0].header['NAXIS2']
 
 #import sky data
-hdulist_sky = pyfits.open(clus_id+'/offset_sky/'+clus_id+'_offset.0001b.fits')
+for file in os.listdir('./'+clus_id+'/offset_sky/'):
+    if fnmatch.fnmatch(file, '*0001b.fits'):
+        hdulist_sky = pyfits.open(clus_id+'/offset_sky/'+file)
 
 #import flat data
 flatfiles = np.array([])
@@ -129,6 +146,8 @@ for file in os.listdir('./'+clus_id+'/flats/'): #search and import all science f
         flatfiles = np.append(flatfiles,file)
         flatfits = pyfits.open(clus_id+'/flats/'+file)
         hdulists_flat = np.append(hdulists_flat,flatfits)
+if len(hdulists_flat) < 1:
+    raise Exception('proc4k.py did not detect any flat files')
 
 #import arc data
 arcfiles = np.array([])
