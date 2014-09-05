@@ -13,7 +13,6 @@ import sys
 import re
 import subprocess
 import pandas as pd
-#import curses
 import copy
 import os
 import fnmatch
@@ -21,9 +20,6 @@ import time
 from testopt import *
 import pickle
 import pdb
-from scipy.interpolate import interp1d
-from scipy.stats import pearsonr
-from scipy.stats import norm
 from scipy import fftpack
 from get_photoz import *
 from redshift_estimate import *
@@ -96,13 +92,8 @@ try:
 except:
     print "Cluster Name Error: You must enter a cluster name to perform reduction"
     print ' '
-    idnew = str(raw_input("Cluster ID: C4_"))
-    if len(idnew) < 4:
-        if len(idnew) == 3: clus_id = 'C4_0'+idnew
-        if len(idnew) == 2: clus_id = 'C4_00'+idnew
-        if len(idnew) == 1: clus_id == 'C4_000'+idnew
-    else:
-        clus_id = 'C4_'+idnew
+    idnew = str(raw_input("Cluster ID: "))
+    clus_id = idnew
 
 print 'Reducing cluster: ',clus_id
 ###############################################################
@@ -110,7 +101,9 @@ print 'Reducing cluster: ',clus_id
 ############################
 #Import Cluster .fits files#
 ############################
-image_file = 'mosaic_r_C4_'+clus_id[-4:].lstrip('0')+'_image.fits' #define mosaic image filename
+for file in os.listdir('./'+clus_id+'/'): #search and import all mosaics
+    if fnmatch.fnmatch(file, 'mosaic_*'):
+        image_file = file
 
 #import, clean, and add science fits files
 sciencefiles = np.array([])
