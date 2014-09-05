@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
-import emcee
 from matplotlib.widgets import Slider, Button, RadioButtons
 from scipy.stats import spearmanr,pearsonr,kendalltau
 from scipy.optimize import minimize

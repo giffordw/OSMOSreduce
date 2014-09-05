@@ -581,8 +581,8 @@ for k in range(len(Gal_dat)):
     Flux_sc = Flux_science2 - signal.medfilt(Flux_science2,171)
 
     if Gal_dat.slit_type[k] == 'g' and Gal_dat.spec_z[k] != 0.0:
-        d.set('pan to 1150.0 '+str(Gal_dat.SLIT_Y[k])+' physical')
-        d.set('regions command {box(2000 '+str(Gal_dat.SLIT_Y[k])+' 4500 40) #color=green highlite=1}')
+        d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[k])+' physical')
+        d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 40) #color=green highlite=1}')
         redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
         fig = plt.figure()
         ax2 = fig.add_subplot(111)
