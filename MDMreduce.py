@@ -137,6 +137,8 @@ naxis2 = hdulist_science[0].header['NAXIS2']
 for file in os.listdir('./'+clus_id+'/offset_sky/'):
     if fnmatch.fnmatch(file, '*0001b.fits'):
         hdulist_sky = pyfits.open(clus_id+'/offset_sky/'+file)
+try: test = hdulist_sky
+except: raise Exception('proc4k.py did not detect any offset sky files')
 
 #import flat data
 flatfiles = np.array([])
@@ -157,6 +159,8 @@ for file in os.listdir('./'+clus_id+'/arcs/'): #search and import all science fi
         arcfiles = np.append(arcfiles,file)
         arcfits = pyfits.open(clus_id+'/arcs/'+file)
         hdulists_arc = np.append(hdulists_arc,arcfits)
+if len(hdulists_arc) < 1:
+    raise Exception('proc4k.py did not detect any arc files')
 ###############################################################
 
 #########################################################
