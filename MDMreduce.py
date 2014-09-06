@@ -98,6 +98,26 @@ except:
 print 'Reducing cluster: ',clus_id
 ###############################################################
 
+#ask if you want to only reduce sdss galaxies with spectra
+try:
+    sdss_check = str(sys.argv[2])
+    if sdss_check == 'sdss':
+        sdss_check = True
+    else:
+        raise Exception(sdss_check+' is not an accepted input. \'sdss\' is the only accepted input here.')
+except IndexError:
+    print "Do you want to reduce only SDSS galaxies with spectra? (y/n)"
+    while True: 
+        char = getch()
+        if char.lower() in ("y", "n"):
+            if char.lower() == "y":
+                print 'Reducing only galaxies with previous SDSS spectra'
+                sdss_check = True
+                break
+            else:
+                sdss_check = False
+                sys.exit('Reducing all galaxies')
+
 ############################
 #Import Cluster .fits files#
 ############################
@@ -298,8 +318,12 @@ if reassign == 'n':
         print 'Galaxy at ',Gal_dat.RA[i],Gal_dat.DEC[i]
         d.set('regions command {box(2000 '+str(Gal_dat.SLIT_Y[i])+' 4500 40) #color=green highlite=1}')
         #raw_input('Once done: hit ENTER')
-        if i >= 0:
-            if Gal_dat.slit_type[i] == 'g' and Gal_dat.spec_z[i] != 0.0:
+        if Gal_dat.slit_type[i] == 'g':
+            if sdss_check:
+                if Gal_dat.spec_z[i] != 0.0: skipgal = False
+                else: skipgal = True
+            else: skipgal = False
+            if not skipgal:
                 print 'Is this spectra good (y) or bad (n)?'
                 while True:
                     char = getch()
@@ -612,6 +636,7 @@ for k in range(len(Gal_dat)):
         pspec, = ax2.plot(wave[k],Flux_science2)
         ax2.axvline(3968.5*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
         ax2.axvline(3933.7*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
+        ax2.axvline(4102.9*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
         ax2.axvline(4304.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
         ax2.axvline(5175.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
         HK_est = EstimateHK(pspec)
@@ -627,7 +652,9 @@ for k in range(len(Gal_dat)):
             spectra, = ax.plot(wave[k]/(1+redshift_est[k]),Flux_science2)
             ax.axvline(3968.5,ls='--',alpha=0.7,c='red')
             ax.axvline(3933.7,ls='--',alpha=0.7,c='red')
+            ax2.axvline(4102.9,ls='--',alpha=0.7,c='orange')
             ax.axvline(4304.0,ls='--',alpha=0.7,c='red')
+            ax2.axvline(5175.0,ls='--',alpha=0.7,c='orange')
             #ax.axvline(3968.5*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
             #ax.axvline(3933.7*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
             #ax.axvline(4304.0*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
