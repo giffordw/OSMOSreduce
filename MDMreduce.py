@@ -627,53 +627,58 @@ for k in range(len(Gal_dat)):
 
     Flux_sc = Flux_science2 - signal.medfilt(Flux_science2,171)
 
-    if Gal_dat.slit_type[k] == 'g' and Gal_dat.spec_z[k] != 0.0:
-        d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[k])+' physical')
-        d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 40) #color=green highlite=1}')
-        redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
-        fig = plt.figure()
-        ax2 = fig.add_subplot(111)
-        pspec, = ax2.plot(wave[k],Flux_science2)
-        ax2.axvline(3968.5*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
-        ax2.axvline(3933.7*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
-        ax2.axvline(4102.9*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
-        ax2.axvline(4304.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
-        ax2.axvline(5175.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
-        HK_est = EstimateHK(pspec)
-        ax2.set_xlim(3800,5100)
-        plt.show()
-        try:
-            pre_lam_est = HK_est.lam
-            pre_z_est = pre_lam_est/3950.0 - 1.0
+    if Gal_dat.slit_type[k] == 'g':
+        if sdss_check:
+            if Gal_dat.spec_z[k] != 0.0: skipgal = False
+            else: skipgal = True
+        else: skipgal = False
+        if not skipgal:
+            d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[k])+' physical')
+            d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 40) #color=green highlite=1}')
             redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
-            print 'Using prior given by user'
-            figure = plt.figure()
-            ax = figure.add_subplot(111)
-            spectra, = ax.plot(wave[k]/(1+redshift_est[k]),Flux_science2)
-            ax.axvline(3968.5,ls='--',alpha=0.7,c='red')
-            ax.axvline(3933.7,ls='--',alpha=0.7,c='red')
-            ax2.axvline(4102.9,ls='--',alpha=0.7,c='orange')
-            ax.axvline(4304.0,ls='--',alpha=0.7,c='red')
-            ax2.axvline(5175.0,ls='--',alpha=0.7,c='orange')
-            #ax.axvline(3968.5*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
-            #ax.axvline(3933.7*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
-            #ax.axvline(4304.0*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
-            ax.set_xlim(3500,4600)
-            print 'got to drag'
-            spectra2 = DragSpectra(spectra,Flux_science2)
-            figure.canvas.mpl_connect('motion_notify_event',spectra2.on_motion)
-            figure.canvas.mpl_connect('button_press_event',spectra2.on_press)
-            figure.canvas.mpl_connect('button_release_event',spectra2.on_release)
+            fig = plt.figure()
+            ax2 = fig.add_subplot(111)
+            pspec, = ax2.plot(wave[k],Flux_science2)
+            ax2.axvline(3968.5*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
+            ax2.axvline(3933.7*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
+            ax2.axvline(4102.9*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
+            ax2.axvline(4304.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
+            ax2.axvline(5175.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
+            HK_est = EstimateHK(pspec)
+            ax2.set_xlim(3800,5100)
             plt.show()
-            total_new_shift = spectra2.dx_tot
-            print total_new_shift
-            redshift_est[k] = (3968.5*(1+redshift_est[k]) - total_new_shift)/3968.5 - 1
-        except:
-            print 'failed redshift fix'
-            pass
-        HSN[k],KSN[k],GSN[k] = sncalc(redshift_est[k],wave[k],Flux_sc)
-        SNavg[k] = np.average(np.array([HSN[k],KSN[k],GSN[k]]))
-        SNHKmin[k] = np.min(np.array([HSN[k],KSN[k]]))
+            try:
+                pre_lam_est = HK_est.lam
+                pre_z_est = pre_lam_est/3950.0 - 1.0
+                redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
+                print 'Using prior given by user'
+                figure = plt.figure()
+                ax = figure.add_subplot(111)
+                spectra, = ax.plot(wave[k]/(1+redshift_est[k]),Flux_science2)
+                ax.axvline(3968.5,ls='--',alpha=0.7,c='red')
+                ax.axvline(3933.7,ls='--',alpha=0.7,c='red')
+                ax2.axvline(4102.9,ls='--',alpha=0.7,c='orange')
+                ax.axvline(4304.0,ls='--',alpha=0.7,c='red')
+                ax2.axvline(5175.0,ls='--',alpha=0.7,c='orange')
+                #ax.axvline(3968.5*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
+                #ax.axvline(3933.7*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
+                #ax.axvline(4304.0*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
+                ax.set_xlim(3500,4600)
+                print 'got to drag'
+                spectra2 = DragSpectra(spectra,Flux_science2)
+                figure.canvas.mpl_connect('motion_notify_event',spectra2.on_motion)
+                figure.canvas.mpl_connect('button_press_event',spectra2.on_press)
+                figure.canvas.mpl_connect('button_release_event',spectra2.on_release)
+                plt.show()
+                total_new_shift = spectra2.dx_tot
+                print total_new_shift
+                redshift_est[k] = (3968.5*(1+redshift_est[k]) - total_new_shift)/3968.5 - 1
+            except:
+                print 'failed redshift fix'
+                pass
+            HSN[k],KSN[k],GSN[k] = sncalc(redshift_est[k],wave[k],Flux_sc)
+            SNavg[k] = np.average(np.array([HSN[k],KSN[k],GSN[k]]))
+            SNHKmin[k] = np.min(np.array([HSN[k],KSN[k]]))
 
     else:
         redshift_est[k] = 0.0
