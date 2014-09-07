@@ -1,4 +1,4 @@
-'''Build like you want to distribute on GitHub
+'''
 IMPORTANT NOTES:
 In the .oms file, the first and last RA/DEC represent a reference slit at the bottom of the mask and the center of the mask respectively.
 
@@ -7,6 +7,7 @@ In the .oms file, the first and last RA/DEC represent a reference slit at the bo
 import numpy as np
 from astropy.io import fits as pyfits
 import matplotlib.pyplot as plt
+from matplotlib.widgets import RadioButtons
 import scipy.signal as signal
 from ds9 import *
 import sys
@@ -46,7 +47,7 @@ def filter_image(img):
     return img_cr
 
 class EstimateHK:
-    def __init__(self,pspec):
+    def __init__(self,pspec,ax2):
         print 'Select redshift'
         #self.pspec = pspec
         #self.cid = fig.canvas.mpl_connect('button_press_event',self.onclick)
@@ -64,17 +65,19 @@ class EstimateHK:
             self.shift_is_held = False
 
     def onclick(self,event):
-        if event.button == 1:
-            #if self.shift_is_held:
-            #    print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
-            #    self.lam = event.xdata
-            #    plt.close()
-            #else:
-            plt.close()
-        if event.button == 3:
-            print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
-            self.lam = event.xdata
-            plt.close()
+        if event.inaxes == ax2:
+            if event.button == 1:
+                #if self.shift_is_held:
+                #    print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
+                #    self.lam = event.xdata
+                #    plt.close()
+                #else:
+                plt.close()
+            if event.button == 3:
+                print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
+                self.lam = event.xdata
+                plt.close()
+        else: return
 
 pixscale = 0.273 #pixel scale at for OSMOS
 xbin = 1
@@ -609,6 +612,8 @@ SNHKmin = np.zeros(len(Gal_dat))
 
 sdss_elem = np.where(Gal_dat.spec_z > 0.0)[0]
 sdss_red = Gal_dat[Gal_dat.spec_z > 0.0].spec_z
+qualityval = {'Clear':np.zeros(len(Gal_dat))}
+
 for k in range(len(Gal_dat)):
     pre_z_est = Gal_dat.photo_z[k]
     pre_z_est = np.median(Gal_dat.spec_z[Gal_dat.spec_z > 0.0])
@@ -638,13 +643,22 @@ for k in range(len(Gal_dat)):
             redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
             fig = plt.figure()
             ax2 = fig.add_subplot(111)
+            plt.subplots_adjust(right=0.8)
             pspec, = ax2.plot(wave[k],Flux_science2)
             ax2.axvline(3968.5*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
             ax2.axvline(3933.7*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
             ax2.axvline(4102.9*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
             ax2.axvline(4304.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
             ax2.axvline(5175.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
-            HK_est = EstimateHK(pspec)
+            HK_est = EstimateHK(pspec,ax2)
+            rax = plt.axes([0.85, 0.5, 0.1, 0.2])
+            radio = RadioButtons(rax, ('Unclear', 'Clear'))
+            def qualfunc(label):
+                if label == 'Clear':
+                    qualityval['Clear'][k] = 1
+                else:
+                    qualityval['Clear'][k] = 0
+            radio.on_clicked(qualfunc)
             ax2.set_xlim(3800,5100)
             plt.show()
             try:
@@ -654,18 +668,25 @@ for k in range(len(Gal_dat)):
                 print 'Using prior given by user'
                 figure = plt.figure()
                 ax = figure.add_subplot(111)
+                plt.subplots_adjust(right=0.8)
                 spectra, = ax.plot(wave[k]/(1+redshift_est[k]),Flux_science2)
                 ax.axvline(3968.5,ls='--',alpha=0.7,c='red')
                 ax.axvline(3933.7,ls='--',alpha=0.7,c='red')
-                ax2.axvline(4102.9,ls='--',alpha=0.7,c='orange')
+                ax.axvline(4102.9,ls='--',alpha=0.7,c='orange')
                 ax.axvline(4304.0,ls='--',alpha=0.7,c='red')
-                ax2.axvline(5175.0,ls='--',alpha=0.7,c='orange')
+                ax.axvline(5175.0,ls='--',alpha=0.7,c='orange')
                 #ax.axvline(3968.5*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
                 #ax.axvline(3933.7*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
                 #ax.axvline(4304.0*(1+sdss_red.values[np.where(sdss_elem==k)][0]),ls='--',alpha=0.7,c='green')
+                rax = plt.axes([0.85, 0.5, 0.1, 0.2])
+                if qualityval['Clear'][k] == 0:
+                    radio = RadioButtons(rax, ('Unlear', 'Clear'))
+                else:
+                    radio = RadioButtons(rax, ('Unlear', 'Clear'),active=1)
+                radio.on_clicked(qualfunc)
                 ax.set_xlim(3500,4600)
                 print 'got to drag'
-                spectra2 = DragSpectra(spectra,Flux_science2)
+                spectra2 = DragSpectra(spectra,Flux_science2,ax)
                 figure.canvas.mpl_connect('motion_notify_event',spectra2.on_motion)
                 figure.canvas.mpl_connect('button_press_event',spectra2.on_press)
                 figure.canvas.mpl_connect('button_release_event',spectra2.on_release)
@@ -688,8 +709,8 @@ for k in range(len(Gal_dat)):
         print 'Estimate: %.5f'%(redshift_est[k]), 'SDSS: %.5f'%(sdss_red.values[np.where(sdss_elem==k)][0])
     print 'z found for galaxy '+str(k+1)+' of '+str(len(Gal_dat))
 
-#Add redshift estimates, SN and Corr to the Dataframe
-Gal_dat['est_z'],Gal_dat['cor'],Gal_dat['HSN'],Gal_dat['KSN'],Gal_dat['GSN'] = redshift_est,cor,HSN,KSN,GSN
+#Add redshift estimates, SN, Corr, and qualityflag to the Dataframe
+Gal_dat['est_z'],Gal_dat['cor'],Gal_dat['HSN'],Gal_dat['KSN'],Gal_dat['GSN'],Gal_dat['quality_flag'] = redshift_est,cor,HSN,KSN,GSN,qualityval['Clear']
 
 plt.plot(Gal_dat['spec_z'],Gal_dat['est_z'],'ro')
 #plt.plot(sdss_red,redshift_est2[sdss_elem.astype('int')],'bo')

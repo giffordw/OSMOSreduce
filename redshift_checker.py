@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class DragSpectra:
-    def __init__(self,spectra,ydata):
+    def __init__(self,spectra,ydata,ax):
+        self.ax = ax
         print 'begin shift'
         self.spectra = spectra
         self.ydata = ydata
@@ -21,14 +22,18 @@ class DragSpectra:
             plt.draw()
 
     def on_press(self,evt):
-        self.mouse_x = evt.xdata
-        self.spectra_x = self.spectra.get_xdata()
-        self.pressed = True
-        print 'mouse press'
+        if evt.inaxes == self.ax:
+            self.mouse_x = evt.xdata
+            self.spectra_x = self.spectra.get_xdata()
+            self.pressed = True
+            #print 'mouse press'
+        else: return
 
     def on_release(self,evt):
-        self.pressed = False
-        print evt.xdata - self.mouse_x
-        self.dx_tot += evt.xdata - self.mouse_x
-        print self.dx_tot
-        print 'release event'
+        if evt.inaxes == self.ax:
+            self.pressed = False
+            #print evt.xdata - self.mouse_x
+            self.dx_tot += evt.xdata - self.mouse_x
+            print self.dx_tot
+            #print 'release event'
+        else: return
