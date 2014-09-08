@@ -7,7 +7,7 @@ In the .oms file, the first and last RA/DEC represent a reference slit at the bo
 import numpy as np
 from astropy.io import fits as pyfits
 import matplotlib.pyplot as plt
-from matplotlib.widgets import RadioButtons
+from matplotlib.widgets import RadioButtons, Button
 import scipy.signal as signal
 from ds9 import *
 import sys
@@ -48,13 +48,8 @@ def filter_image(img):
 
 class EstimateHK:
     def __init__(self,pspec,ax2):
-        print 'Select redshift'
-        #self.pspec = pspec
-        #self.cid = fig.canvas.mpl_connect('button_press_event',self.onclick)
-        #self.cid1 = fig.canvas.mpl_connect('key_press_event',self.on_key_press)
-        #self.cid2 = fig.canvas.mpl_connect('key_release_event',self.on_key_release)
+        print 'If redshift calibration appears correct, hit "Accept and Close". Otherwise, "right click" approx. where the H and K lines are in the plotted spectrum. The program will re-correlate based on this guess.'
         self.cid3 = pspec.figure.canvas.mpl_connect('button_press_event',self.onclick)
-        #self.shift_is_held = False
 
     def on_key_press(self,event):
         if event.key == 'shift':
@@ -66,6 +61,11 @@ class EstimateHK:
 
     def onclick(self,event):
         if event.inaxes == ax2:
+            if event.button == 3:
+                print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
+                self.lam = event.xdata
+                plt.close()
+            '''
             if event.button == 1:
                 #if self.shift_is_held:
                 #    print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
@@ -73,10 +73,7 @@ class EstimateHK:
                 #    plt.close()
                 #else:
                 plt.close()
-            if event.button == 3:
-                print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
-                self.lam = event.xdata
-                plt.close()
+            '''
         else: return
 
 pixscale = 0.273 #pixel scale at for OSMOS
@@ -614,10 +611,25 @@ sdss_elem = np.where(Gal_dat.spec_z > 0.0)[0]
 sdss_red = Gal_dat[Gal_dat.spec_z > 0.0].spec_z
 qualityval = {'Clear':np.zeros(len(Gal_dat))}
 
-for k in range(len(Gal_dat)):
-    pre_z_est = Gal_dat.photo_z[k]
-    pre_z_est = np.median(Gal_dat.spec_z[Gal_dat.spec_z > 0.0])
+est_pre_z = raw_input('Your sample contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS galaxies with spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? If not, would you like to specify your own prior for each galaxy (q)? If not, press (p) to use the sdss photo_z as a prior: ')
 
+#Choose redshift prior information
+est_enter = False
+while not est_enter:
+    if est_pre_z == 's':
+        z_prior_width = 0.04
+        est_enter = True
+    elif est_pre_z == 'p':
+        z_prior_width = 0.06
+        est_enter = True
+    elif est_pre_z == 'q':
+        z_prior_width = 0.06
+        est_enter = True
+    else:
+        est_pre_z = raw_input('Incorrect entry: Please enter either (s), (q), or (p). Your sample contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS galaxies with spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? If not, would you like to specify your own prior for each galaxy (q)? If not, press (p) to use the sdss photo_z as a prior: ')
+
+
+for k in range(len(Gal_dat)):
     F1 = fftpack.rfft(Flux_science[k])
     cut = F1.copy()
     W = fftpack.rfftfreq(wave[k].size,d=wave[k][2001]-wave[k][2000])
@@ -640,7 +652,20 @@ for k in range(len(Gal_dat)):
         if not skipgal:
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[k])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 40) #color=green highlite=1}')
-            redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
+            #assign prior to redshift depending on photo_z or user defined.
+            if est_pre_z == 's':
+                pre_z_est = np.median(Gal_dat.spec_z[Gal_dat.spec_z > 0.0])
+            if est_pre_z == 'p':
+                pre_z_est = Gal_dat.photo_z[k]
+            elif est_pre_z == 'q':
+                print 'Take a look at the plotted galaxy spectrum and note, approximately, at what wavelength do the H and K lines exist? Then close the plot and enter that wavelength in angstroms.'
+                plt.plot(wave[k],Flux_science2)
+                plt.xlim(4000.0,7000.0)
+                plt.show()
+                HKinit = raw_input('HK approx. wavelength (A): ')
+                pre_z_est = np.float(HKinit)/3950.0 - 1
+
+            redshift_est[k],cor[k] = redshift_estimate(pre_z_est,z_prior_width,early_type_wave,early_type_flux,wave[k],Flux_sc)
             fig = plt.figure()
             ax2 = fig.add_subplot(111)
             plt.subplots_adjust(right=0.8)
@@ -659,12 +684,17 @@ for k in range(len(Gal_dat)):
                 else:
                     qualityval['Clear'][k] = 0
             radio.on_clicked(qualfunc)
+            closeax = plt.axes([0.83, 0.3, 0.15, 0.1])
+            button = Button(closeax, 'Accept & Close', hovercolor='0.975')
+            def closeplot(event):
+                plt.close()
+            button.on_clicked(closeplot)
             ax2.set_xlim(3800,5100)
             plt.show()
             try:
                 pre_lam_est = HK_est.lam
                 pre_z_est = pre_lam_est/3950.0 - 1.0
-                redshift_est[k],cor[k] = redshift_estimate(pre_z_est,early_type_wave,early_type_flux,wave[k],Flux_sc)
+                redshift_est[k],cor[k] = redshift_estimate(pre_z_est,z_prior_width,early_type_wave,early_type_flux,wave[k],Flux_sc)
                 print 'Using prior given by user'
                 figure = plt.figure()
                 ax = figure.add_subplot(111)
@@ -684,6 +714,9 @@ for k in range(len(Gal_dat)):
                 else:
                     radio = RadioButtons(rax, ('Unlear', 'Clear'),active=1)
                 radio.on_clicked(qualfunc)
+                closeax = plt.axes([0.83, 0.3, 0.15, 0.1])
+                button = Button(closeax, 'Accept & Close', hovercolor='0.975')
+                button.on_clicked(closeplot)
                 ax.set_xlim(3500,4600)
                 print 'got to drag'
                 spectra2 = DragSpectra(spectra,Flux_science2,ax)

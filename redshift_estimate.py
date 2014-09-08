@@ -4,7 +4,7 @@ from scipy.interpolate import interp1d
 from scipy.stats import pearsonr
 from scipy.stats import norm
 
-def redshift_estimate(z_est,early_type_wave,early_type_flux,wave,Flux_sc):
+def redshift_estimate(z_est,unc,early_type_wave,early_type_flux,wave,Flux_sc):
     #Flux_sc = signal.medfilt(Flux_science[],171)
     ztest = np.linspace(0.02,0.35,10000)
     corr_val_i = np.zeros(ztest.size)
@@ -46,7 +46,7 @@ def redshift_estimate(z_est,early_type_wave,early_type_flux,wave,Flux_sc):
 
     corr_val = (corr_val_i[np.isfinite(corr_val_i)]+1)/np.trapz((corr_val_i[np.isfinite(corr_val_i)]+1),ztest[np.isfinite(corr_val_i)])
     ztest = ztest[np.isfinite(corr_val_i)]
-    rv = norm(z_est,0.04)
+    rv = norm(z_est,unc)
     corr_val = corr_val * rv.pdf(ztest)
     redshift_est = (ztest[np.where((ztest>0.02)&(ztest<0.35))])[np.where(corr_val[np.where((ztest>0.02)&(ztest<0.35))] == np.max(corr_val[np.where((ztest>0.02)&(ztest<0.35))]))]
     #redshift_est2[] = (ztest[np.where((ztest>0.05)&(ztest<0.15))])[np.where(corr_val2[np.where((ztest>0.05)&(ztest<0.15))] == np.max(corr_val2[np.where((ztest>0.05)&(ztest<0.15))]))]
