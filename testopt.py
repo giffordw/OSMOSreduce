@@ -228,21 +228,19 @@ class LineBrowser:
         self.line_matches = line_matches
         self.radio_label = 'Select Line'
 
-        #self.text = ax.text(0.05, 0.95, 'selected: none',transform=ax.transAxes, va='top')
+        self.text = ax.text(0.05, 0.95, 'Pick red reference line',transform=ax.transAxes, va='top')
         #self.selected,  = ax.plot([xs[0]], [ys[0]], 'o', ms=12, alpha=0.4,color='yellow', visible=False)
         self.selected  = self.ax.axvline(self.wm[0],lw=2,alpha=0.7,color='red', visible=False)
         self.selected_peak, = self.ax.plot(np.zeros(1),np.zeros(1),'bo',markersize=4,alpha=0.6,visible=False)
 
     def onpress(self, event):
-        if self.lastind is None: return
-        if event.key not in ('n', 'p'): return
-        if event.key=='n': inc = 1
-        else:  inc = -1
-
-
-        self.lastind += inc
-        self.lastind = np.clip(self.lastind, 0, len(xs)-1)
-        self.update()
+        print 'detected press'
+        if event.key not in ('w', 'e'): return
+        if event.key=='w':
+            print 'pressed w'
+            self.radioset('Select Line')
+        if event.key=='e':
+            self.radioset('Select Peak')
 
     def onpick(self, event):
         if self.radio_label == 'Select Line':
@@ -289,7 +287,6 @@ class LineBrowser:
             self.selected.set_visible(True)
             self.selected.set_xdata(self.wm[self.dataind])
 
-            #self.text.set_text('selected: %d'%dataind)
             self.fig.canvas.draw()
         if self.radio_label == 'Select Peak':
             self.selected_peak.set_visible(True)
@@ -302,12 +299,16 @@ class LineBrowser:
             if self.wm[self.dataind] not in self.line_matches['lines']: #don't allow duplicates
                 print 'Adding line'
                 self.line_matches['lines'].append(self.wm[self.dataind])
+                self.text.set_text('Pick corresponding Peak')
+                self.radioset('Select Peak')
         if self.radio_label == 'Select Peak':
             if self.px[self.max_chopped][0] not in self.line_matches['peaks']:
                 print 'Adding peak'
                 self.line_matches['peaks'].append(self.px[self.max_chopped][0])
+                self.text.set_text('Pick red reference line')
+                self.radioset('Select Line')
 
-    def radio(self,label):
+    def radioset(self,label):
         self.radio_label = label
 
 
@@ -330,14 +331,15 @@ if __name__ == '__main__':
         ax.axvline(wm[j],color='r')
     line, = ax.plot(wm,fm/2.0,'ro',picker=5)# 5 points tolerance
     fline, = plt.plot(quad_est*(p_x-2000)**2 + stretch_est*(p_x-2000) + shift_est,(f_x[::-1]-f_x.min())/10.0,'b',picker=5)
-    browser = LineBrowser(fig,ax,line,wm,p_x,fline,line_matches)
-    fig.canvas.mpl_connect('pick_event', browser.onpick)
     closeax = plt.axes([0.83, 0.3, 0.15, 0.1])
     button = Button(closeax, 'Add Line', hovercolor='0.975')
+    #rax = plt.axes([0.85, 0.5, 0.1, 0.2])
+    #radio = RadioButtons(rax, ('Select Line', 'Select Peak'))
+    browser = LineBrowser(fig,ax,line,wm,p_x,fline,line_matches)
+    fig.canvas.mpl_connect('pick_event', browser.onpick)
+    #fig.canvas.mpl_connect('key_press_event',browser.onpress)
     button.on_clicked(browser.add_line)
-    rax = plt.axes([0.85, 0.5, 0.1, 0.2])
-    radio = RadioButtons(rax, ('Select Line', 'Select Peak'))
-    radio.on_clicked(browser.radio)
+    #radio.on_clicked(browser.radioset)
     plt.show()
     params,pcov = curve_fit(polyfour,np.sort(browser.line_matches['peaks']),np.sort(browser.line_matches['lines']),p0=[shift_est,stretch_est,quad_est,1e-8,1e-12,1e-12])
     print params
