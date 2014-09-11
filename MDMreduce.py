@@ -487,12 +487,10 @@ if reassign == 'n':
                 fline, = plt.plot(quad_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii],(f_x[::-1]-f_x.min())/10.0,'b',picker=5)
                 browser = LineBrowser(fig,ax,line,wm,p_x,fline,line_matches)
                 fig.canvas.mpl_connect('pick_event', browser.onpick)
-                closeax = plt.axes([0.83, 0.3, 0.15, 0.1])
-                button = Button(closeax, 'Add Line', hovercolor='0.975')
+                fig.canvas.mpl_connect('key_press_event',browser.onpress)
+                closeax = plt.axes([0.83, 0.5, 0.15, 0.1])
+                button = Button(closeax, 'Add Line (x)', hovercolor='0.975')
                 button.on_clicked(browser.add_line)
-                rax = plt.axes([0.85, 0.5, 0.1, 0.2])
-                radio = RadioButtons(rax, ('Select Line', 'Select Peak'))
-                radio.on_clicked(browser.radio)
                 plt.show()
                 
                 params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),np.sort(browser.line_matches['lines']),p0=[shift_est[ii],stretch_est[ii],quad_est[ii],1e-8,1e-12,1e-12])
@@ -506,7 +504,6 @@ if reassign == 'n':
             flu = flu[::-1]
             Flux[ii] = flu/signal.medfilt(flu,201)
             fifth[ii],fourth[ii],cube[ii],quad[ii],stretch[ii],shift[ii] = params[5],params[4],params[3],params[2],params[1],params[0]
-            pdb.set_trace()
             plt.plot(wave[ii],Flux[ii]/np.max(Flux[ii]))
             plt.plot(wm,fm/np.max(fm),'ro')
             for j in range(wm.size):
@@ -547,12 +544,18 @@ if reassign == 'n':
         for i in range(ii,len(Gal_dat)):
             print 'Calibrating',i,'of',stretch.size
             if Gal_dat.good_spectra[i] == 'y':
-                p_x = np.arange(0,4064,1)
-                f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)
-                d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[i])+' physical')
-                d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[i])+' 4500 '+str(Gal_dat.SLIT_WIDTH[i])+') #color=green highlite=1}')
-                #stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]-(Gal_dat.FINAL_SLIT_X_FLIP[i]*stretch_est[0]-Gal_dat.FINAL_SLIT_X_FLIP[i-1]*stretch_est[i-1]),quad[i-1],cube[i-1],fourth[i-1],fifth[i-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
-                stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]+(Gal_dat.FINAL_SLIT_X_FLIP[i-1]-Gal_dat.FINAL_SLIT_X_FLIP[i]),quad[i-1],cube[i-1],fourth[i-1],fifth[i-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
+                if sdss_check:
+                    if Gal_dat.spec_z[i] != 0.0: skipgal = False
+                    else: skipgal = True
+                else: skipgal = False
+                if not skipgal:
+                    p_x = np.arange(0,4064,1)
+                    f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)
+                    d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[i])+' physical')
+                    d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[i])+' 4500 '+str(Gal_dat.SLIT_WIDTH[i])+') #color=green highlite=1}')
+                    #stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]-(Gal_dat.FINAL_SLIT_X_FLIP[i]*stretch_est[0]-Gal_dat.FINAL_SLIT_X_FLIP[i-1]*stretch_est[i-1]),quad[i-1],cube[i-1],fourth[i-1],fifth[i-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
+                    reduced_slits = np.where(stretch != 0.0)
+                    stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch[reduced_slits][-1],shift[reduced_slits][-1]+(Gal_dat.FINAL_SLIT_X_FLIP.values[reduced_slits][-1]-Gal_dat.FINAL_SLIT_X_FLIP[i]),quad[reduced_slits][-1],cube[reduced_slits][-1],fourth[reduced_slits][-1],fifth[reduced_slits][-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
 
     #write out the polynomial estimates
     ff = open(clus_id+'/'+clus_id+'_stretchshift_est.tab','w')
@@ -568,17 +571,22 @@ if reassign == 'n':
 
     for i in range(ii,len(Gal_dat)):
         if Gal_dat.good_spectra[i] == 'y':
-            f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)
-            wave[i],Flux[i],fifth[i],fourth[i],cube[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,Gal_dat.FINAL_SLIT_X_FLIP[i],stretch_est[i],shift_est[i],quad_est[i],cube_est[i],fourth_est[i],fifth_est[i])
-            plt.plot(wave[i],Flux[i]/np.max(Flux[i]))
-            plt.plot(wm,fm/np.max(fm),'ro')
-            for j in range(wm.size):
-                plt.axvline(wm[j],color='r')
-            plt.xlim(3800,6000)
-            plt.savefig(clus_id+'/figs/'+str(i)+'.wave.png')
-            plt.close()
-            print 'Wave calib',i
-            #wave[i],Flux[i],stretch[i],shift[i] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[i],shift[i],quad[i])
+            if sdss_check:
+                if Gal_dat.spec_z[i] != 0.0: skipgal = False
+                else: skipgal = True
+            else: skipgal = False
+            if not skipgal:
+                f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)
+                wave[i],Flux[i],fifth[i],fourth[i],cube[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,Gal_dat.FINAL_SLIT_X_FLIP[i],stretch_est[i],shift_est[i],quad_est[i],cube_est[i],fourth_est[i],fifth_est[i])
+                plt.plot(wave[i],Flux[i]/np.max(Flux[i]))
+                plt.plot(wm,fm/np.max(fm),'ro')
+                for j in range(wm.size):
+                    plt.axvline(wm[j],color='r')
+                plt.xlim(3800,6000)
+                plt.savefig(clus_id+'/figs/'+str(i)+'.wave.png')
+                plt.close()
+                print 'Wave calib',i
+                #wave[i],Flux[i],stretch[i],shift[i] = interactive_plot_plus(p_x,f_x[::-1]-np.min(f_x),wm,fm,stretch[i],shift[i],quad[i])
         f.write(str(Gal_dat.FINAL_SLIT_X_FLIP[i])+'\t')
         f.write(str(Gal_dat.FINAL_SLIT_Y[i])+'\t')
         f.write(str(shift[i])+'\t')

@@ -234,13 +234,13 @@ class LineBrowser:
         self.selected_peak, = self.ax.plot(np.zeros(1),np.zeros(1),'bo',markersize=4,alpha=0.6,visible=False)
 
     def onpress(self, event):
-        print 'detected press'
-        if event.key not in ('w', 'e'): return
-        if event.key=='w':
-            print 'pressed w'
-            self.radioset('Select Line')
-        if event.key=='e':
-            self.radioset('Select Peak')
+        print 'button press'
+        print event.key
+        if event.key not in ('x'): return
+        if event.key=='x':
+            print 'adding line via key'
+            self.add_line(True)
+            return
 
     def onpick(self, event):
         if self.radio_label == 'Select Line':
@@ -301,12 +301,16 @@ class LineBrowser:
                 self.line_matches['lines'].append(self.wm[self.dataind])
                 self.text.set_text('Pick corresponding Peak')
                 self.radioset('Select Peak')
+                self.fig.canvas.draw()
+                return
         if self.radio_label == 'Select Peak':
             if self.px[self.max_chopped][0] not in self.line_matches['peaks']:
                 print 'Adding peak'
                 self.line_matches['peaks'].append(self.px[self.max_chopped][0])
                 self.text.set_text('Pick red reference line')
                 self.radioset('Select Line')
+                self.fig.canvas.draw()
+                return
 
     def radioset(self,label):
         self.radio_label = label
@@ -337,7 +341,7 @@ if __name__ == '__main__':
     #radio = RadioButtons(rax, ('Select Line', 'Select Peak'))
     browser = LineBrowser(fig,ax,line,wm,p_x,fline,line_matches)
     fig.canvas.mpl_connect('pick_event', browser.onpick)
-    #fig.canvas.mpl_connect('key_press_event',browser.onpress)
+    fig.canvas.mpl_connect('key_press_event',browser.onpress)
     button.on_clicked(browser.add_line)
     #radio.on_clicked(browser.radioset)
     plt.show()
