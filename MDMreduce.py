@@ -452,7 +452,7 @@ if os.path.isfile(clus_id+'/'+clus_id+'_stretchshift.tab'):
 if reassign == 'n':
     #create write file
     f = open(clus_id+'/'+clus_id+'_stretchshift.tab','w')
-    f.write('#X_SLIT_FLIP     Y_SLIT     SHIFT     STRETCH     QUAD     CUBE     FOURTH    WIDTH \n')
+    f.write('#X_SLIT_FLIP     Y_SLIT     SHIFT     STRETCH     QUAD     CUBE     FOURTH    FIFTH    WIDTH \n')
     
     #initialize polynomial arrays
     fifth,fourth,cube,quad,stretch,shift =  np.zeros(len(Gal_dat)),np.zeros(len(Gal_dat)),np.zeros(len(Gal_dat)),np.zeros(len(Gal_dat)),np.zeros(len(Gal_dat)),np.zeros(len(Gal_dat))
@@ -460,11 +460,11 @@ if reassign == 'n':
     if os.path.isfile(clus_id+'/'+clus_id+'_stretchshift_est.tab'):
         reguess = raw_input('Detected file with estimated stretch and shift parameters for each spectra. Do you wish to use this (y) or remove and re-adjust (n)? ')
         if reguess == 'y':
-            quad_est,shift_est,stretch_est = np.loadtxt(clus_id+'/'+clus_id+'_stretchshift_est.tab',dtype='float',usecols=(0,1,2),unpack=True)
+            fifth_est,fourth_est,cube_est,quad_est,shift_est,stretch_est = np.loadtxt(clus_id+'/'+clus_id+'_stretchshift_est.tab',dtype='float',usecols=(0,1,2),unpack=True)
         if reguess == 'n':
-            quad_est,shift_est,stretch_est = np.zeros(len(Gal_dat)),np.zeros(len(Gal_dat)),np.zeros(len(Gal_dat))
+            fifth_est,fourth_est,cube_est,quad_est,shift_est,stretch_est = np.zeros((6,len(Gal_dat)))
     else:
-        quad_est,shift_est,stretch_est = np.zeros(len(Gal_dat)),np.zeros(len(Gal_dat)),np.zeros(len(Gal_dat))
+        fifth_est,fourth_est,cube_est,quad_est,shift_est,stretch_est = np.zeros((6,len(Gal_dat)))
     Flux = np.zeros((len(Gal_dat),4064))
     calib_data = arcfits_c.data
     p_x = np.arange(0,4064,1)
@@ -475,14 +475,43 @@ if reassign == 'n':
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' 4500 '+str(Gal_dat.SLIT_WIDTH[ii])+') #color=green highlite=1}')
             if reguess == 'n':
-                stretch_est[ii],shift_est[ii],quad_est[ii] = interactive_plot(p_x,f_x,0.70,0.0,0.0,Gal_dat.FINAL_SLIT_X_FLIP[ii])
-            wave[ii],Flux[ii],fifth[ii],fourth[ii],cube[ii],quad[ii],stretch[ii],shift[ii] = wavecalibrate(p_x,f_x,Gal_dat.FINAL_SLIT_X_FLIP[ii],stretch_est[ii],shift_est[ii],quad_est[ii])
-            
+                stretch_est[ii],shift_est[ii],quad_est[ii] = interactive_plot(p_x,f_x,0.70,0.0,0.0,cube_est[ii],fourth_est[ii],fifth_est[ii],Gal_dat.FINAL_SLIT_X_FLIP[ii])
+
+                #Pick lines for initial parameter fit
+                line_matches = {'lines':[],'peaks':[]}
+                fig,ax = plt.subplots(1)
+                plt.subplots_adjust(right=0.8)
+                for j in range(wm.size):
+                    ax.axvline(wm[j],color='r')
+                line, = ax.plot(wm,fm/2.0,'ro',picker=5)# 5 points tolerance
+                fline, = plt.plot(quad_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii],(f_x[::-1]-f_x.min())/10.0,'b',picker=5)
+                browser = LineBrowser(fig,ax,line,wm,p_x,fline,line_matches)
+                fig.canvas.mpl_connect('pick_event', browser.onpick)
+                closeax = plt.axes([0.83, 0.3, 0.15, 0.1])
+                button = Button(closeax, 'Add Line', hovercolor='0.975')
+                button.on_clicked(browser.add_line)
+                rax = plt.axes([0.85, 0.5, 0.1, 0.2])
+                radio = RadioButtons(rax, ('Select Line', 'Select Peak'))
+                radio.on_clicked(browser.radio)
+                plt.show()
+                
+                params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),np.sort(browser.line_matches['lines']),p0=[shift_est[ii],stretch_est[ii],quad_est[ii],1e-8,1e-12,1e-12])
+                cube_est = cube_est + params[3]
+                fourth_est = fourth_est + params[4]
+                fifth_est = fifth_est + params[5]
+
+            #wave[ii],Flux[ii],fifth[ii],fourth[ii],cube[ii],quad[ii],stretch[ii],shift[ii] = wavecalibrate(p_x,f_x,Gal_dat.FINAL_SLIT_X_FLIP[ii],stretch_est[ii],shift_est[ii],quad_est[ii],fourth_est[ii],fifth_est[ii])
+            wave[ii] = params[0]+params[1]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])+params[2]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2+params[3]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**3.0+params[4]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**4.0+params[5]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**5.0
+            flu = f_x - np.min(f_x)
+            flu = flu[::-1]
+            Flux[ii] = flu/signal.medfilt(flu,201)
+            fifth[ii],fourth[ii],cube[ii],quad[ii],stretch[ii],shift[ii] = params[5],params[4],params[3],params[2],params[1],params[0]
+            pdb.set_trace()
             plt.plot(wave[ii],Flux[ii]/np.max(Flux[ii]))
             plt.plot(wm,fm/np.max(fm),'ro')
             for j in range(wm.size):
                 plt.axvline(wm[j],color='r')
-            plt.xlim(3800,5000)
+            plt.xlim(3800,6000)
             try:
                 plt.savefig(clus_id+'/figs/'+str(ii)+'.wave.png')
             except:
@@ -522,11 +551,15 @@ if reassign == 'n':
                 f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)
                 d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[i])+' physical')
                 d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[i])+' 4500 '+str(Gal_dat.SLIT_WIDTH[i])+') #color=green highlite=1}')
-                stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]+(Gal_dat.FINAL_SLIT_X_FLIP[i]*stretch_est[0]-Gal_dat.FINAL_SLIT_X_FLIP[i-1]*stretch_est[i-1]),quad[i-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
+                #stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]-(Gal_dat.FINAL_SLIT_X_FLIP[i]*stretch_est[0]-Gal_dat.FINAL_SLIT_X_FLIP[i-1]*stretch_est[i-1]),quad[i-1],cube[i-1],fourth[i-1],fifth[i-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
+                stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]+(Gal_dat.FINAL_SLIT_X_FLIP[i-1]-Gal_dat.FINAL_SLIT_X_FLIP[i]),quad[i-1],cube[i-1],fourth[i-1],fifth[i-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
 
     #write out the polynomial estimates
     ff = open(clus_id+'/'+clus_id+'_stretchshift_est.tab','w')
     for i in range(len(Gal_dat)):
+        ff.write(str(fifth_est[i])+'\t')
+        ff.write(str(fourth_est[i])+'\t')
+        ff.write(str(cube_est[i])+'\t')
         ff.write(str(quad_est[i])+'\t')
         ff.write(str(shift_est[i])+'\t')
         ff.write(str(stretch_est[i])+'\t')
@@ -536,12 +569,12 @@ if reassign == 'n':
     for i in range(ii,len(Gal_dat)):
         if Gal_dat.good_spectra[i] == 'y':
             f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)
-            wave[i],Flux[i],fifth[i],fourth[i],cube[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,Gal_dat.FINAL_SLIT_X_FLIP[i],stretch_est[i],shift_est[i],quad_est[i])
+            wave[i],Flux[i],fifth[i],fourth[i],cube[i],quad[i],stretch[i],shift[i] = wavecalibrate(p_x,f_x,Gal_dat.FINAL_SLIT_X_FLIP[i],stretch_est[i],shift_est[i],quad_est[i],cube_est[i],fourth_est[i],fifth_est[i])
             plt.plot(wave[i],Flux[i]/np.max(Flux[i]))
             plt.plot(wm,fm/np.max(fm),'ro')
             for j in range(wm.size):
                 plt.axvline(wm[j],color='r')
-            plt.xlim(3800,5000)
+            plt.xlim(3800,6000)
             plt.savefig(clus_id+'/figs/'+str(i)+'.wave.png')
             plt.close()
             print 'Wave calib',i
@@ -718,9 +751,9 @@ for k in range(len(Gal_dat)):
                 ax.axvline(5175.0,ls='--',alpha=0.7,c='orange')
                 rax = plt.axes([0.85, 0.5, 0.1, 0.2])
                 if qualityval['Clear'][k] == 0:
-                    radio = RadioButtons(rax, ('Unlear', 'Clear'))
+                    radio = RadioButtons(rax, ('Unclear', 'Clear'))
                 else:
-                    radio = RadioButtons(rax, ('Unlear', 'Clear'),active=1)
+                    radio = RadioButtons(rax, ('Unclear', 'Clear'),active=1)
                 radio.on_clicked(qualfunc)
                 closeax = plt.axes([0.83, 0.3, 0.15, 0.1])
                 button = Button(closeax, 'Accept & Close', hovercolor='0.975')

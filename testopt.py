@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from matplotlib.widgets import Slider, Button, RadioButtons
+from matplotlib.lines import Line2D
 from scipy.stats import spearmanr,pearsonr,kendalltau
 from scipy.optimize import minimize
 from scipy.optimize import curve_fit
@@ -51,7 +52,10 @@ def gaussian_lines(line_x,line_a,xgrid,width=2.0):
         temp += gauss
     return temp
 
-def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
+def polyfour(x,a,b,c,d,e,f):
+    return a + b*x + c*x**2.0 + d*x**3.0 + e*x**4.0 + f*x**5.0
+
+def wavecalibrate(px,fx,slit_x,stretch_est=0.0,shift_est=0.0,quad_est=0.0,cube_est=0.0,fourth_est=0.0,fifth_est=0.0):
     #flip and normalize flux
     fx = fx - np.min(fx)
     fx = fx[::-1]
@@ -65,7 +69,7 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
     interp = interp1d(xgrid,lines_gauss,bounds_error=False,fill_value=0)
     #interp = UnivariateSpline(xgrid,lines_gauss)
 
-    wave_est = qu_es*(px-slit_x)**2+(px)*stretch_est+shift_est
+    wave_est = fifth_est*(px-slit_x)**5 + fourth_est*(px-slit_x)**4 + cube_est*(px-slit_x)**3 + quad_est*(px-slit_x)**2 + (px-slit_x)*stretch_est + shift_est #don't subtract the slit pos because interactive plot doesn't (easier)
     wm_in = wm[np.where((wm<wave_est.max())&(wm>wave_est.min()))]
     #wm_in = wm[np.where((wm<5000.0)&(wm>wave_est.min()))]
     px_max = np.zeros(wm_in.size)
@@ -73,167 +77,15 @@ def wavecalibrate(px,fx,slit_x,stretch_est=None,shift_est=None,qu_es=None):
         px_in = px[np.where((wave_est<wm_in[i]+5.0)&(wave_est>wm_in[i]-5))]
         px_max[i] = px_in[fx[np.where((wave_est<wm_in[i]+5.0)&(wave_est>wm_in[i]-5))].argmax()]
 
-    def polyfour(x,a,b,c,d,e,f):
-        return a + b*x + c*x**2.0 + d*x**3.0 + e*x**4.0 + f*x**5.0
-
-    params,pcov = curve_fit(polyfour,(px_max-slit_x),wm_in,p0=[2000.0,0.70,1e-5,1e-8,1e-12,1e-12])
-    '''
-    def log_prior(theta):
-        #g_i needs to be between 0 and 1
-        if (all(theta > 0) and all(theta < 1)):
-            return 0
-        else:
-            return -np.inf  # recall log(0) = -inf
-
-    def log_likelihood(p, x, y, e):
-        dy = y - (p[0]+p[1]*x + p[2]*x*x + p[3]*x*x*x + p[4]*x*x*x*x + p[5]*x*x*x*x*x)
-        #g = np.clip(p[6:], 0, 1)  # g<0 or g>1 leads to NaNs in logarithm
-        logL1 = - 0.5 * np.log(2 * np.pi * e ** 2) - 0.5 * (dy / e) ** 2
-        #logL2 = - 0.5 * np.log(2 * np.pi * sigma_B ** 2) - 0.5 * (dy / sigma_B) ** 2
-        return np.sum(logL1)
-
-    def log_posterior(p, x, y, e):
-        return log_likelihood(p, x, y, e)
-    
-    #MCMC
-    ndim,nwalkers = 6,50
-    sstart = time.time()
-    p0 = np.column_stack((np.random.uniform(params[0]-50,params[0]+50,nwalkers),np.random.uniform(params[1]-0.01,params[1]+0.01,nwalkers),np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-6,5e-6,nwalkers),np.random.uniform(-5e-6,5e-6,nwalkers),np.random.uniform(-5e-6,5e-6,nwalkers)))
-    #p0 = np.random.rand(nwalkers,6+px_max.size)
-    #p0[:,0] = np.random.uniform(params[0]-100,params[0]+100,nwalkers)
-    #p0[:,1] = np.random.uniform(params[1]-0.01,params[1]+0.01,nwalkers)
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,log_posterior,args=[px_max-slit_x,wm_in,5])
-    print 'Stepping MCMC'
-    start = time.time()
-    pos, prob, state = sampler.run_mcmc(p0,1000)
-    end = time.time()
-    print 'Burn in time:',end - start
-    sampler.reset()
-    print 'Starting Main MCMC'
-    start = time.time()
-    sampler.run_mcmc(pos,10000,rstate0=state)
-    end = time.time()
-    print 'MCMC time:',end - start
-    (n,bins) = np.histogram(sampler.flatchain[:,0],100)
-    mbins = (bins[1:]+bins[:-1])/2.0
-    param0 = mbins[n==n.max()]
-    (n,bins) = np.histogram(sampler.flatchain[:,1],100)
-    mbins = (bins[1:]+bins[:-1])/2.0
-    param1 = mbins[n==n.max()]
-    (n,bins) = np.histogram(sampler.flatchain[:,2],100)
-    mbins = (bins[1:]+bins[:-1])/2.0
-    param2 = mbins[n==n.max()]
-    (n,bins) = np.histogram(sampler.flatchain[:,3],100)
-    mbins = (bins[1:]+bins[:-1])/2.0
-    param3 = mbins[n==n.max()]
-    (n,bins) = np.histogram(sampler.flatchain[:,4],100)
-    mbins = (bins[1:]+bins[:-1])/2.0
-    param4 = mbins[n==n.max()]
-    (n,bins) = np.histogram(sampler.flatchain[:,5],100)
-    mbins = (bins[1:]+bins[:-1])/2.0
-    param5 = mbins[n==n.max()]
-    wave_mcmc = param0+param1*(px-slit_x)+param2*(px-slit_x)**2+param3*(px-slit_x)**3.0+param4*(px-slit_x)**4.0+param5*(px-slit_x)**5.0
-
-    
-    plt.plot(px_max-slit_x,wm_in,'ro',alpha=0.5,markersize=5)
-    plt.plot(px-slit_x,params[0]+params[1]*(px-slit_x)+params[2]*(px-slit_x)**2+params[3]*(px-slit_x)**3.0+params[4]*(px-slit_x)**4.0+params[5]*(px-slit_x)**5.0)
-    plt.show()
-    print params[1]
-    '''
-    
-
-    if stretch_est is None:
-        stretch_est = 0.68
-        shift_est = 0.0
-        qu_es = 1e-6
-    
-    #@profile
-    def prob2(x,x_p,F_p,w_m,F_m,st_es,sh_es,qu_es,st_width=0.03,sh_width=75.0):
-        #interp = interp1d(w_m,F_m,bounds_error=False,fill_value=0)
-        new_wave = x[4]*(x_p-slit_x)**4 + x[3]*(x_p-slit_x)**3 + x[2]*(x_p-slit_x)**2+(x_p)*x[0]+x[1]
-        #interp = interpolate.splrep(x_p*x[0]+x[1],F_p,s=0)
-        if x[0] < st_es - st_width or x[0] > st_es + st_width: P0 = -np.inf
-        else: P0 = 0.0
-        if x[1] < sh_es - sh_width or x[1] > sh_es + sh_width: P1 = -np.inf
-        else: P1 = 0.0
-        if x[2] < -2e-5 or x[2] > 2e-5: P2 = -np.inf
-        else: P2 = 0.0
-        if x[3] < -1e-10 or x[3] > 1e-10: P3 = -np.inf
-        else: P3 = 0.0
-        if x[4] < -9e-12 or x[4] > 9e-12: P4 = -np.inf
-        else: P4 = 0.0
-        iwave = interp(new_wave)
-        corr =  pearsonr(np.log(F_p[np.where((new_wave>=3900)&(new_wave<=5000))]),np.log(iwave[np.where((new_wave>=3900)&(new_wave<=5000))]+1))[0] + P0 + P1 + P2 + P3 + P4
-        if np.isnan(corr): return -np.inf
-        else: return -0.5 * (1.0 - corr)
-    
-    '''
-    #MCMC
-    ndim,nwalkers = 5,100
-    sstart = time.time()
-    #First Pass
-    #p0 = np.vstack((np.random.uniform(stretch_est-0.01,stretch_est+0.01,nwalkers),np.random.uniform(-50,50,nwalkers)+shift_est,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
-    p0 = np.column_stack((np.random.uniform(params[1]-0.01,params[1]+0.01,nwalkers),np.random.uniform(-50,50,nwalkers)+params[0],np.random.uniform(-1e-6,1e-6,nwalkers)+,np.random.uniform(-5e-12,5e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers)))
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es])
-    print 'Stepping MCMC'
-    start = time.time()
-    pos, prob, state = sampler.run_mcmc(p0,100)
-    end = time.time()
-    print 'Burn in time:',end - start
-    sampler.reset()
-    print 'Starting Main MCMC'
-    start = time.time()
-    sampler.run_mcmc(pos,500,rstate0=state)
-    end = time.time()
-    print 'MCMC time:',end - start
-    total_chain = sampler.flatchain
-    total_lnprob = sampler.flatlnprobability
-    sorted_chain = sampler.flatchain[np.argsort(sampler.flatlnprobability)[::-1]]
-    max_stretch,max_shift,max_quad,max_cube,max_fourth = sorted_chain[0]
-    print 'First Pass'
-    print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e   Max_fourth: %e'%(max_stretch,max_shift,max_quad,max_cube,max_fourth)
-    wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
-    
-    #Second Pass
-    p0 = np.vstack((np.random.uniform(max_stretch-0.005,max_stretch+0.005,nwalkers),np.random.uniform(-10,10,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,max_stretch,max_shift,max_quad,0.01,10.0])
-    print 'Starting Main MCMC'
-    start = time.time()
-    sampler.run_mcmc(p0,500)
-    end = time.time()
-    print 'MCMC time:',end - start
-    print 'Total Time:%.2f minutes'%(time.time() - sstart)
-    total_chain = np.append(total_chain,sampler.flatchain,axis=0)
-    total_lnprob = np.append(total_lnprob,sampler.flatlnprobability)
-    sorted_chain = total_chain[np.argsort(total_lnprob)[::-1]]
-    max_stretch,max_shift,max_quad,max_cube,max_fourth = sorted_chain[0]
-    print 'Second Pass'
-    print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e    Max_cube: %e   Max_fourth: %e'%(max_stretch,max_shift,max_quad,max_cube,max_fourth)
-    wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px)*max_stretch + max_shift
-    
-    #Third Pass
-    p0 = np.vstack((np.random.uniform(max_stretch-0.001,max_stretch+0.001,nwalkers),np.random.uniform(-2,2,nwalkers)+max_shift,np.random.uniform(-1e-6,1e-6,nwalkers),np.random.uniform(-1e-12,1e-12,nwalkers),np.random.uniform(-5e-12,5e-12,nwalkers))).T
-    sampler = emcee.EnsembleSampler(nwalkers,ndim,prob2,args=[px,fx,xgrid,lines_gauss,stretch_est,shift_est,qu_es,0.003,5.0])
-    print 'Starting Main MCMC'
-    start = time.time()
-    sampler.run_mcmc(p0,500)
-    end = time.time()
-    print 'MCMC time:',end - start
-    total_chain = np.append(total_chain,sampler.flatchain,axis=0)
-    total_lnprob = np.append(total_lnprob,sampler.flatlnprobability)
-    sorted_chain = total_chain[np.argsort(total_lnprob)[::-1]]
-    max_stretch,max_shift,max_quad,max_cube,max_fourth = sorted_chain[0]
-    print 'Third Pass'
-    print 'Max_stretch: %.4f   Max_shift: %.2f   Max_quad: %e   Max_cube: %e   Max_fourth: %e'%(max_stretch,max_shift,max_quad,max_cube,max_fourth)
-    
-    wave_new =  max_fourth*(px-slit_x)**4 + max_cube*(px-slit_x)**3 + max_quad*(px-slit_x)**2 + (px-slit_x)*max_stretch + max_shift
-    '''
+    params,pcov = curve_fit(polyfour,(px_max-slit_x),wm_in,p0=[shift_est,stretch_est,quad_est,cube_est,fourth_est,fifth_est])
     #return (wave_new,fx,max_fourth,max_cube,max_quad,max_stretch,max_shift)
     
     return (params[0]+params[1]*(px-slit_x)+params[2]*(px-slit_x)**2+params[3]*(px-slit_x)**3.0+params[4]*(px-slit_x)**4.0+params[5]*(px-slit_x)**5.0,fx,params[5],params[4],params[3],params[2],params[1],params[0])
     #return (param0+param1*(px-slit_x)+param2*(px-slit_x)**2+param3*(px-slit_x)**3.0+param4*(px-slit_x)**4.0+param5*(px-slit_x)**5.0,fx,params[4],params[3],params[2],params[1],params[0])
-    
-def interactive_plot(px,fx,stretch_0,shift_0,quad_0,slit_x):
+
+
+
+def interactive_plot(px,fx,stretch_0,shift_0,quad_0,cube_0,fourth_0,fifth_0,slit_x):
     #flip and normalize flux
     fx = fx - np.min(fx)
     fx = fx[::-1]
@@ -244,7 +96,7 @@ def interactive_plot(px,fx,stretch_0,shift_0,quad_0,slit_x):
     
     fig,ax = plt.subplots()
     plt.subplots_adjust(left=0.25,bottom=0.30)
-    l, = plt.plot(quad_0*(px-slit_x)**2 + stretch_0*(px) + shift_0,fx/10.0,'b')
+    l, = plt.plot(fifth_0*(px-slit_x)**5 + fourth_0*(px-slit_x)**4 + cube_0*(px-slit_x)**3 + quad_0*(px-slit_x)**2 + stretch_0*(px-slit_x) + shift_0,fx/10.0,'b')
     plt.plot(wm,fm/2.0,'ro')
     for i in range(wm.size): plt.axvline(wm[i],color='r')
     plt.xlim(4000,6000)
@@ -269,10 +121,10 @@ def interactive_plot(px,fx,stretch_0,shift_0,quad_0,slit_x):
     close_button = Button(close_ax,'Close Plots', hovercolor='0.80')
 
     def update(val):
-        l.set_xdata((quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px)+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata((quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px-slit_x)+(slide_shift.val+fn_slide_shift.val))
         fig.canvas.draw_idle()
     def fineupdate(val):
-        l.set_xdata((quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px)+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata((quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px-slit_x)+(slide_shift.val+fn_slide_shift.val))
         #slide_stretch.val = slide_stretch.val + fn_slide_stretch.val
         #slide_shift.val = slide_shift.val + fn_slide_shift.val
         fig.canvas.draw_idle()
@@ -358,15 +210,138 @@ def interactive_plot_plus(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     print 'quad_0:',quad_0,'stretch_0:',stretch_est,'shift_0:',shift_est
     return (quad_0*(px-2032.0)**2+px*stretch_est+shift_est,fx,stretch_est,shift_est)
 
+class LineBrowser:
+    """
+    Click on a point to select and highlight it -- the data that
+    generated the point will be shown in the lower axes.  Use the 'n'
+    and 'p' keys to browse through the next and previous points
+    """
+    def __init__(self,fig,ax,line,wm,px,fline,line_matches):
+        self.lastind = 0
+
+        self.px = px
+        self.fig = fig
+        self.ax = ax
+        self.wm = wm
+        self.line = line
+        self.fline = fline
+        self.line_matches = line_matches
+        self.radio_label = 'Select Line'
+
+        #self.text = ax.text(0.05, 0.95, 'selected: none',transform=ax.transAxes, va='top')
+        #self.selected,  = ax.plot([xs[0]], [ys[0]], 'o', ms=12, alpha=0.4,color='yellow', visible=False)
+        self.selected  = self.ax.axvline(self.wm[0],lw=2,alpha=0.7,color='red', visible=False)
+        self.selected_peak, = self.ax.plot(np.zeros(1),np.zeros(1),'bo',markersize=4,alpha=0.6,visible=False)
+
+    def onpress(self, event):
+        if self.lastind is None: return
+        if event.key not in ('n', 'p'): return
+        if event.key=='n': inc = 1
+        else:  inc = -1
+
+
+        self.lastind += inc
+        self.lastind = np.clip(self.lastind, 0, len(xs)-1)
+        self.update()
+
+    def onpick(self, event):
+        if self.radio_label == 'Select Line':
+            if event.artist!=self.line: return True
+
+            N = len(event.ind)
+            if not N: return True
+
+            # the click locations
+            x = event.mouseevent.xdata
+            y = event.mouseevent.ydata
+
+            distances = x-self.wm[event.ind]
+            indmin = distances.argmin()
+            self.dataind = event.ind[indmin]
+
+            self.lastind = self.dataind
+            self.update()
+        if self.radio_label == 'Select Peak':
+            if event.artist!=self.fline: return True
+
+            N = len(event.ind)
+            if not N: return True
+
+            # the click locations
+            x = event.mouseevent.xdata
+            y = event.mouseevent.ydata
+            
+            self.chopped_ind, = np.where(np.abs(self.fline.get_xdata()-x) <= 10)
+            self.max_chopped = self.chopped_ind[self.fline.get_ydata()[self.chopped_ind] == np.max(self.fline.get_ydata()[self.chopped_ind])]
+            self.update()
+
+    def update(self):
+        if self.radio_label == 'Select Line':
+            if self.lastind is None: return
+
+            self.dataind = self.lastind
+
+            #ax2.cla()
+            #ax2.plot(X[dataind])
+
+            #ax2.text(0.05, 0.9, 'mu=%1.3f\nsigma=%1.3f'%(xs[dataind], ys[dataind]),transform=ax2.transAxes, va='top')
+            #ax2.set_ylim(-0.5, 1.5)
+            self.selected.set_visible(True)
+            self.selected.set_xdata(self.wm[self.dataind])
+
+            #self.text.set_text('selected: %d'%dataind)
+            self.fig.canvas.draw()
+        if self.radio_label == 'Select Peak':
+            self.selected_peak.set_visible(True)
+            self.selected_peak.set_xdata(self.fline.get_xdata()[self.max_chopped])
+            self.selected_peak.set_ydata(self.fline.get_ydata()[self.max_chopped])
+            self.fig.canvas.draw()
+
+    def add_line(self,event):
+        if self.radio_label == 'Select Line':
+            if self.wm[self.dataind] not in self.line_matches['lines']: #don't allow duplicates
+                print 'Adding line'
+                self.line_matches['lines'].append(self.wm[self.dataind])
+        if self.radio_label == 'Select Peak':
+            if self.px[self.max_chopped][0] not in self.line_matches['peaks']:
+                print 'Adding peak'
+                self.line_matches['peaks'].append(self.px[self.max_chopped][0])
+
+    def radio(self,label):
+        self.radio_label = label
+
+
+
 if __name__ == '__main__':
     from astropy.io import fits as pyfits
-    arcfits = pyfits.open('C4_0199/arcs/arc590813.0001.xo.fits')
+    wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
+    wm = air_to_vacuum(wm)
+    arcfits = pyfits.open('C4_0199/arcs/arc590813.0001b.fits')
     data = arcfits[0].data
     xpos = 500.0
     xpos2 = 1500.0
     p_x = np.arange(0,4064,1)
     f_x = np.sum(data[1670:1705,:],axis=0)
-    wave,Flux,fourth,cube,quad,stretch,shift = wavecalibrate(p_x,f_x,1679.1503,0.7122818,2778.431)
+    stretch_est,shift_est,quad_est = interactive_plot(p_x,f_x,0.70,0.0,0.0,0.0,0.0,0.0,2000)
+    line_matches = {'lines':[],'peaks':[]}
+    fig,ax = plt.subplots(1)
+    plt.subplots_adjust(right=0.8)
+    for j in range(wm.size):
+        ax.axvline(wm[j],color='r')
+    line, = ax.plot(wm,fm/2.0,'ro',picker=5)# 5 points tolerance
+    fline, = plt.plot(quad_est*(p_x-2000)**2 + stretch_est*(p_x-2000) + shift_est,(f_x[::-1]-f_x.min())/10.0,'b',picker=5)
+    browser = LineBrowser(fig,ax,line,wm,p_x,fline,line_matches)
+    fig.canvas.mpl_connect('pick_event', browser.onpick)
+    closeax = plt.axes([0.83, 0.3, 0.15, 0.1])
+    button = Button(closeax, 'Add Line', hovercolor='0.975')
+    button.on_clicked(browser.add_line)
+    rax = plt.axes([0.85, 0.5, 0.1, 0.2])
+    radio = RadioButtons(rax, ('Select Line', 'Select Peak'))
+    radio.on_clicked(browser.radio)
+    plt.show()
+    params,pcov = curve_fit(polyfour,np.sort(browser.line_matches['peaks']),np.sort(browser.line_matches['lines']),p0=[shift_est,stretch_est,quad_est,1e-8,1e-12,1e-12])
+    print params
+    wave,Flux,fifth,fourth,cube,quad,stretch,shift = wavecalibrate(p_x,f_x,1679.1503,0.7122818,2778.431)
     #p_x2 = np.arange(0,4064,1) + 1000.0
     #wave2,Flux2,cube2,quad2,stretch2,shift2 = wavecalibrate(p_x2,f_x,stretch,shift-(xpos2*stretch-xpos*stretch),quad)
 
