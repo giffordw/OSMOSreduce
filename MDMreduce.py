@@ -6,6 +6,8 @@ In the .oms file, the first and last RA/DEC represent a reference slit at the bo
 
 import numpy as np
 from astropy.io import fits as pyfits
+import matplotlib
+matplotlib.use('Qt4Agg')
 import matplotlib.pyplot as plt
 from matplotlib.widgets import RadioButtons, Button
 import scipy.signal as signal
