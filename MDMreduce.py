@@ -486,6 +486,9 @@ if reassign == 'n':
             closeax = plt.axes([0.83, 0.5, 0.15, 0.1])
             button = Button(closeax, 'Add Line (x)', hovercolor='0.975')
             button.on_clicked(browser.add_line)
+            undoax = plt.axes([0.83,0.3,0.15,0.1])
+            undo_button = Button(undoax,'Undo',hovercolor='0.975')
+            undo_button.on_clicked(browser.undo)
             plt.show()
                 
             params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),np.sort(browser.line_matches['lines']),p0=[shift_est[ii],stretch_est[ii],quad_est[ii],1e-8,1e-12,1e-12])
@@ -565,6 +568,9 @@ if reassign == 'n':
                 closeax = plt.axes([0.83, 0.5, 0.15, 0.1])
                 button = Button(closeax, 'Add Line (x)', hovercolor='0.975')
                 button.on_clicked(browser.add_line)
+                undoax = plt.axes([0.83,0.3,0.15,0.1])
+                undo_button = Button(undoax,'Undo',hovercolor='0.975')
+                undo_button.on_clicked(browser.undo)
                 plt.show()
                 
                 params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks'])-Gal_dat.FINAL_SLIT_X_FLIP[i]),np.sort(browser.line_matches['lines']),p0=[shift_est[i],stretch_est[i],quad_est[i],1e-8,1e-12,1e-12])

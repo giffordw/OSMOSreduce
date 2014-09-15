@@ -236,11 +236,9 @@ class LineBrowser:
         self.selected_peak, = self.ax.plot(np.zeros(1),np.zeros(1),'bo',markersize=4,alpha=0.6,visible=False)
 
     def onpress(self, event):
-        print 'button press'
-        print event.key
         if event.key not in ('x'): return
         if event.key=='x':
-            print 'adding line via key'
+            print 'added '+self.radio_label[-4:]
             self.add_line(True)
             return
 
@@ -316,6 +314,21 @@ class LineBrowser:
 
     def radioset(self,label):
         self.radio_label = label
+
+    def undo(self,event):
+        if self.radio_label == 'Select Line': #then undo last peak addition
+            self.line_matches['peaks'].pop()
+            self.text.set_text('Re-pick corresponding Peak')
+            self.radioset('Select Peak')
+            self.fig.canvas.draw()
+            return
+        if self.radio_label == 'Select Peak': #then undo last line addition
+            self.line_matches['lines'].pop()
+            self.text.set_text('Re-pick red reference line')
+            self.radioset('Select Line')
+            self.selected.set_xdata(self.line_matches['lines'][-1])
+            self.fig.canvas.draw()
+            return
 
 
 
