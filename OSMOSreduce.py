@@ -9,7 +9,7 @@ from astropy.io import fits as pyfits
 import matplotlib
 matplotlib.use('Qt4Agg')
 import matplotlib.pyplot as plt
-from matplotlib.widgets import RadioButtons, Button
+from matplotlib.widgets import RadioButtons, Button, CheckButtons
 import scipy.signal as signal
 from ds9 import *
 import sys
@@ -474,21 +474,27 @@ if reassign == 'n':
 
             #Pick lines for initial parameter fit
             line_matches = {'lines':[],'peaks':[]}
+            cal_states = {'Xe':True,'Ar':False,'HgNe':False,'Ne':False}
             fig,ax = plt.subplots(1)
             plt.subplots_adjust(right=0.8)
             for j in range(wm.size):
                 ax.axvline(wm[j],color='r')
             line, = ax.plot(wm,fm/2.0,'ro',picker=5)# 5 points tolerance
-            fline, = plt.plot(quad_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii],(f_x[::-1]-f_x.min())/10.0,'b',picker=5)
-            browser = LineBrowser(fig,ax,line,wm,p_x,fline,line_matches)
+            xspectra = quad_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii]
+            yspectra = (f_x[::-1]-f_x.min())/10.0
+            fline, = plt.plot(xspectra,yspectra,'b',picker=5)
+            browser = LineBrowser(fig,ax,line,wm,fm,p_x,fline,xspectra,yspectra,line_matches,cal_states)
             fig.canvas.mpl_connect('pick_event', browser.onpick)
             fig.canvas.mpl_connect('key_press_event',browser.onpress)
-            closeax = plt.axes([0.83, 0.5, 0.15, 0.1])
+            closeax = plt.axes([0.83, 0.7, 0.15, 0.1])
             button = Button(closeax, 'Add Line (x)', hovercolor='0.975')
             button.on_clicked(browser.add_line)
-            undoax = plt.axes([0.83,0.3,0.15,0.1])
+            undoax = plt.axes([0.83,0.5,0.15,0.1])
             undo_button = Button(undoax,'Undo',hovercolor='0.975')
             undo_button.on_clicked(browser.undo)
+            stateax = plt.axes([0.83,0.3,0.15,0.1])
+            states = CheckButtons(stateax,cal_states.keys(), cal_states.values())
+            states.on_clicked(browser.set_calib_lines)
             plt.show()
                 
             params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),np.sort(browser.line_matches['lines']),p0=[shift_est[ii],stretch_est[ii],quad_est[ii],1e-8,1e-12,1e-12])
@@ -503,8 +509,8 @@ if reassign == 'n':
             fifth[ii],fourth[ii],cube[ii],quad[ii],stretch[ii],shift[ii] = params[5],params[4],params[3],params[2],params[1],params[0]
             plt.plot(wave[ii],Flux[ii]/np.max(Flux[ii]))
             plt.plot(wm,fm/np.max(fm),'ro')
-            for j in range(wm.size):
-                plt.axvline(wm[j],color='r')
+            for j in range(browser.wm.size):
+                plt.axvline(browser.wm[j],color='r')
             plt.xlim(3800,6000)
             try:
                 plt.savefig(clus_id+'/figs/'+str(ii)+'.wave.png')
@@ -556,13 +562,16 @@ if reassign == 'n':
                 stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch[reduced_slits][-1],shift[reduced_slits][-1]+(Gal_dat.FINAL_SLIT_X_FLIP.values[reduced_slits][-1]-Gal_dat.FINAL_SLIT_X_FLIP[i]),quad[reduced_slits][-1],cube[reduced_slits][-1],fourth[reduced_slits][-1],fifth[reduced_slits][-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
 
                 line_matches = {'lines':[],'peaks':[]}
+                cal_states = {'Xe':True,'Ar':False,'HgNe':False,'Ne':False}
                 fig,ax = plt.subplots(1)
                 plt.subplots_adjust(right=0.8)
                 for j in range(wm.size):
                     ax.axvline(wm[j],color='r')
                 line, = ax.plot(wm,fm/2.0,'ro',picker=5)# 5 points tolerance
-                fline, = plt.plot(quad_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + stretch_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i]) + shift_est[i],(f_x[::-1]-f_x.min())/10.0,'b',picker=5)
-                browser = LineBrowser(fig,ax,line,wm,p_x,fline,line_matches)
+                xspectra = quad_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + stretch_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i]) + shift_est[i]
+                yspectra = (f_x[::-1]-f_x.min())/10.0
+                fline, = plt.plot(xspectra,yspectra,'b',picker=5)
+                browser = LineBrowser(fig,ax,line,wm,fm,p_x,fline,xspectra,yspectra,line_matches,cal_states)
                 fig.canvas.mpl_connect('pick_event', browser.onpick)
                 fig.canvas.mpl_connect('key_press_event',browser.onpress)
                 closeax = plt.axes([0.83, 0.5, 0.15, 0.1])
@@ -571,6 +580,9 @@ if reassign == 'n':
                 undoax = plt.axes([0.83,0.3,0.15,0.1])
                 undo_button = Button(undoax,'Undo',hovercolor='0.975')
                 undo_button.on_clicked(browser.undo)
+                stateax = plt.axes([0.83,0.8,0.15,0.1])
+                states = CheckButtons(stateax,cal_states.keys(), cal_states.values())
+                states.on_clicked(browser.set_calib_lines)
                 plt.show()
                 
                 params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks'])-Gal_dat.FINAL_SLIT_X_FLIP[i]),np.sort(browser.line_matches['lines']),p0=[shift_est[i],stretch_est[i],quad_est[i],1e-8,1e-12,1e-12])
@@ -585,8 +597,8 @@ if reassign == 'n':
                 fifth[i],fourth[i],cube[i],quad[i],stretch[i],shift[i] = params[5],params[4],params[3],params[2],params[1],params[0]
                 plt.plot(wave[i],Flux[i]/np.max(Flux[i]))
                 plt.plot(wm,fm/np.max(fm),'ro')
-                for j in range(wm.size):
-                    plt.axvline(wm[j],color='r')
+                for j in range(browser.wm.size):
+                    plt.axvline(browser.wm[j],color='r')
                 plt.xlim(3800,6000)
                 try:
                     plt.savefig(clus_id+'/figs/'+str(i)+'.wave.png')

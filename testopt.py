@@ -218,7 +218,17 @@ class LineBrowser:
     generated the point will be shown in the lower axes.  Use the 'n'
     and 'p' keys to browse through the next and previous points
     """
-    def __init__(self,fig,ax,line,wm,px,fline,line_matches):
+    def __init__(self,fig,ax,line,wm,fm,px,fline,xspectra,yspectra,line_matches,cal_states):
+        #load calibration files
+        self.wm_Xe,self.fm_Xe = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
+        self.wm_Xe = air_to_vacuum(self.wm_Xe)
+        self.wm_Ar,self.fm_Ar = np.loadtxt('osmos_Argon.dat',usecols=(0,2),unpack=True)
+        self.wm_Ar = air_to_vacuum(self.wm_Ar)
+        self.wm_HgNe,self.fm_HgNe = np.loadtxt('osmos_HgNe.dat',usecols=(0,2),unpack=True)
+        self.wm_HgNe = air_to_vacuum(self.wm_HgNe)
+        self.wm_Ne,self.fm_Ne = np.loadtxt('osmos_Ne.dat',usecols=(0,2),unpack=True)
+        self.wm_Ne = air_to_vacuum(self.wm_Ne)
+
         self.lastind = 0
 
         self.px = px
@@ -227,7 +237,10 @@ class LineBrowser:
         self.wm = wm
         self.line = line
         self.fline = fline
+        self.xspectra = xspectra
+        self.yspectra = yspectra
         self.line_matches = line_matches
+        self.cal_states = cal_states
         self.radio_label = 'Select Line'
 
         self.text = ax.text(0.05, 0.95, 'Pick red reference line',transform=ax.transAxes, va='top')
@@ -314,6 +327,41 @@ class LineBrowser:
 
     def radioset(self,label):
         self.radio_label = label
+
+    def set_calib_lines(self,label):
+        self.cal_states[label] = not self.cal_states[label]
+        xl = self.ax.get_xlim()
+        yl = self.ax.get_ylim()
+        self.ax.cla()
+        self.wm = []
+        self.fm = []
+        print 'axes should be cleared'
+        
+        if self.cal_states['Xe']: 
+            self.wm.extend(self.wm_Xe)
+            self.fm.extend(self.fm_Xe)
+        if self.cal_states['Ar']:
+            self.wm.extend(self.wm_Ar)
+            self.fm.extend(self.fm_Ar)
+        if self.cal_states['HgNe']:
+            self.wm.extend(self.wm_HgNe)
+            self.fm.extend(self.fm_HgNe)
+        if self.cal_states['Ne']:
+            self.wm.extend(self.wm_Ne)
+            self.fm.extend(self.fm_Ne)
+        self.wm = np.array(self.wm)
+        self.fm = np.array(self.fm)
+        print self.wm
+        for j in range(self.wm.size):
+            self.ax.axvline(self.wm[j],color='r')
+        self.line, = self.ax.plot(np.array(self.wm),np.array(self.fm)/2.0,'ro',picker=5)# 5 points tolerance
+        self.selected = self.ax.axvline(self.wm[0],lw=2,alpha=0.7,color='red', visible=False)
+        self.selected_peak, = self.ax.plot(np.zeros(1),np.zeros(1),'bo',markersize=4,alpha=0.6,visible=False)
+        self.fline, = self.ax.plot(self.xspectra,self.yspectra,'b',picker=5)
+        self.ax.set_xlim(xl)
+        self.ax.set_ylim(yl)
+        self.fig.canvas.draw()
+        
 
     def undo(self,event):
         if self.radio_label == 'Select Line': #then undo last peak addition
