@@ -280,7 +280,7 @@ if os.path.isfile(clus_id+'/'+clus_id+'_slittypes.pkl'):
 if reassign == 'n':
     keys = np.arange(0,Gal_dat.SLIT_WIDTH.size,1).astype('string')
     slit_type = {}
-    print 'Is this a galaxy (g), a star (r), sky (s), or center (x)?'
+    print 'Is this a galaxy (g), a reference star (r), or empty sky (s)?'
     for i in range(len(Gal_dat)):
         d.set('pan to '+Gal_dat.RA[i]+' '+Gal_dat.DEC[i]+' wcs fk5')
         if Gal_dat.SLIT_WIDTH[i] == '1.0':
@@ -289,7 +289,7 @@ if reassign == 'n':
             d.set('regions command {box('+Gal_dat.RA[i]+' '+Gal_dat.DEC[i]+' 12 12) #color=green}')
         while True:
             char = getch()
-            if char.lower() in ("g", "r", "s", "x"):
+            if char.lower() in ("g", "r", "s"):
                 break
 
         slit_type[keys[i]] = char.lower()

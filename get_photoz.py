@@ -12,18 +12,18 @@ def query_galaxies(ra,dec):
         coord = ICRS(ra1[0]+'h'+ra1[1]+'m'+ra1[2]+'s '+dec1[0]+'d'+dec1[1]+'m'+dec1[2]+'s')
         print coord.ra.deg
         print coord.dec.deg
-        query = sqlcl.query("SELECT  gn.objid, ISNULL(s.specobjid,0) AS specobjid, p.ra, p.dec,p.Petromag_u-p.extinction_u AS U_mag,p.Petromag_g-p.extinction_g AS G_mag,p.Petromag_r-p.extinction_r AS R_mag,p.Petromag_i-p.extinction_i AS I_mag,p.Petromag_z-p.extinction_z AS Z_mag, ISNULL(s.z, 0) AS z, ISNULL(pz.z, 0) AS pz, 12 FROM  (Galaxy AS p JOIN dbo.fGetNearbyObjEq("+str(coord.ra.deg)+","+str(coord.dec.deg)+","+str(0.033)+") AS GN  ON p.objID = GN.objID LEFT OUTER JOIN SpecObj s ON s.bestObjID = p.objID) LEFT OUTER JOIN Photoz pz on pz.objid = p.objid WHERE p.Petromag_r-p.extinction_r < 19.1 and (status & dbo.fPhotoStatus('GOOD') > 0)").readlines()
-        if len(query) > 2:
+        query = sqlcl.query("SELECT  gn.objid, ISNULL(s.specobjid,0) AS specobjid, p.ra, p.dec,p.Petromag_u-p.extinction_u AS U_mag,p.Petromag_g-p.extinction_g AS G_mag,p.Petromag_r-p.extinction_r AS R_mag,p.Petromag_i-p.extinction_i AS I_mag,p.Petromag_z-p.extinction_z AS Z_mag, ISNULL(s.z, 0) AS z, ISNULL(pz.z, 0) AS pz FROM  (Galaxy AS p JOIN dbo.fGetNearbyObjEq("+str(coord.ra.deg)+","+str(coord.dec.deg)+","+str(0.033)+") AS GN  ON p.objID = GN.objID LEFT OUTER JOIN SpecObj s ON s.bestObjID = p.objID) LEFT OUTER JOIN Photoz pz on pz.objid = p.objid WHERE p.Petromag_r-p.extinction_r < 19.1 and p.clean = 1").readlines()
+        if len(query) > 4:
             print 'oops! More than 1 candidate found'
-        if len(query) == 1:
+        if len(query) == 2:
             print 'No targets found'
-            gal_sdss_data.append([0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
+            gal_sdss_data.append([0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0])
             continue
-        gal_sdss_data.append(map(float,query[1][:-1].split(',')))
+        gal_sdss_data.append(map(float,query[2].split(',')))
         print 'Done with galaxy',i
 
     gal_sdss_data = np.array(gal_sdss_data)
-    S_df = pd.DataFrame(gal_sdss_data,columns=['#objID','SpecObjID','ra','dec','umag','gmag','rmag','imag','zmag','spec_z','photo_z','extra'])
+    S_df = pd.DataFrame(gal_sdss_data,columns=['#objID','SpecObjID','ra','dec','umag','gmag','rmag','imag','zmag','spec_z','photo_z'])
     return S_df
 
 
