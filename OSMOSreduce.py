@@ -243,7 +243,7 @@ gal_z = Gal_dat['spec_z']
 gal_gmag = Gal_dat['gmag']
 gal_rmag = Gal_dat['rmag']
 gal_imag = Gal_dat['imag']
-print 300000.0*Gal_dat[mapping]['spec_z_err']/(1+np.median(Gal_dat[mapping]['spec_z'])
+print 300000.0*Gal_dat[mapping]['spec_z_err']/(1+np.median(Gal_dat[mapping]['spec_z']))
 
 ####################
 #Open images in ds9#
