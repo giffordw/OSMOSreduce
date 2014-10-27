@@ -28,6 +28,7 @@ from get_photoz import *
 from redshift_estimate import *
 from sncalc import *
 from redshift_checker import *
+from gal_trace import *
 
 def getch():
     import tty, termios
@@ -243,8 +244,6 @@ gal_z = Gal_dat['spec_z']
 gal_gmag = Gal_dat['gmag']
 gal_rmag = Gal_dat['rmag']
 gal_imag = Gal_dat['imag']
-mapping = Gal_dat['spec_z'] > 0
-print 300000.0*Gal_dat[mapping]['spec_z_err']/(1+np.median(Gal_dat[mapping]['spec_z']))
 
 ####################
 #Open images in ds9#
@@ -629,8 +628,8 @@ else:
         wave[i] = fifth[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**5 + fourth[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**4 + cube[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**3 + quad[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + stretch[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i]) + shift[i]
 
 #summed science slits + filtering to see spectra
-#Flux_science = np.array([signal.medfilt(np.sum(scifits_c2.data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)[::-1],11) for i in range(len(Gal_dat))])
-Flux_science = np.array([np.sum(scifits_c2.data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)[::-1] for i in range(len(Gal_dat))])
+#Flux_science_old = np.array([np.sum(scifits_c2.data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)[::-1] for i in range(len(Gal_dat))])
+Flux_science = np.array([gal_trace(scifits_c2.data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:])[::-1] for i in range(len(Gal_dat))])
 
 #Add parameters to Dataframe
 Gal_dat['shift'],Gal_dat['stretch'],Gal_dat['quad'],Gal_dat['cube'],Gal_dat['fourth'],Gal_dat['fifth'] = shift,stretch,quad,cube,fourth,fifth
