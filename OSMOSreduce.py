@@ -473,15 +473,32 @@ if reassign == 'n':
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' 4500 '+str(Gal_dat.SLIT_WIDTH[ii])+') #color=green highlite=1}')
             stretch_est[ii],shift_est[ii],quad_est[ii] = interactive_plot(p_x,f_x,0.70,0.0,0.0,cube_est[ii],fourth_est[ii],fifth_est[ii],Gal_dat.FINAL_SLIT_X_FLIP[ii])
 
-            #Pick lines for initial parameter fit
+            #run peak identifier and match lines to peaks
             line_matches = {'lines':[],'peaks':[]}
+            xspectra = quad_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii]
+            fydat = f_x[::-1] - signal.medfilt(f_x[::-1],171)
+            fyreal = f_x[::-1]
+            peaks = argrelextrema(fydat,np.greater)
+            fxpeak = xspectra[peaks]
+            fxrpeak = p_x[peaks]
+            fypeak = fydat[peaks]
+            fyrpeak = fyreal[peaks]
+            noise = np.std(np.sort(fydat)[:np.round(fydat.size*0.5)])
+            fxpeak = fxpeak[fypeak>noise]
+            fxrpeak = fxrpeak[fypeak>noise]
+            fypeak = fyrpeak[fypeak>noise]
+            for j in range(wm.size):
+                line_matches['lines'].append(wm[j])
+                line_matches['peaks'].append(fxrpeak[np.argsort(np.abs(wm[j]-fxpeak))][0])
+            
+            #Pick lines for initial parameter fit
+            #line_matches = {'lines':[],'peaks':[]}
             cal_states = {'Xe':True,'Ar':False,'HgNe':False,'Ne':False}
             fig,ax = plt.subplots(1)
             plt.subplots_adjust(right=0.8)
             for j in range(wm.size):
                 ax.axvline(wm[j],color='r',alpha=0.5)
             line, = ax.plot(wm,np.zeros(wm.size),'ro',picker=5)# 5 points tolerance
-            xspectra = quad_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii]
             yspectra = (f_x[::-1]-f_x.min())/10.0
             fline, = plt.plot(xspectra,yspectra,'b',picker=5)
             browser = LineBrowser(fig,ax,line,wm,fm,p_x,fline,xspectra,yspectra,line_matches,cal_states)

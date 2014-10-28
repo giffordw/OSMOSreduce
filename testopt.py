@@ -9,6 +9,7 @@ from scipy.stats import spearmanr,pearsonr,kendalltau
 from scipy.optimize import minimize
 from scipy.optimize import curve_fit
 from scipy.interpolate import interp1d,UnivariateSpline
+from scipy.signal import argrelextrema
 import pdb
 import pandas as pd
 import time
@@ -237,7 +238,7 @@ class LineBrowser:
         self.line_matches = line_matches
         self.cal_states = cal_states
         self.radio_label = 'Select Line'
-
+        
         self.text = ax.text(0.05, 0.95, 'Pick red reference line',transform=ax.transAxes, va='top')
         #self.selected,  = ax.plot([xs[0]], [ys[0]], 'o', ms=12, alpha=0.4,color='yellow', visible=False)
         self.selected  = self.ax.axvline(self.wm[0],lw=2,alpha=0.8,color='red',ymin=0.5,visible=False)
