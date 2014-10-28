@@ -213,11 +213,6 @@ def interactive_plot_plus(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     return (quad_0*(px-2032.0)**2+px*stretch_est+shift_est,fx,stretch_est,shift_est)
 
 class LineBrowser:
-    """
-    Click on a point to select and highlight it -- the data that
-    generated the point will be shown in the lower axes.  Use the 'n'
-    and 'p' keys to browse through the next and previous points
-    """
     def __init__(self,fig,ax,line,wm,fm,px,fline,xspectra,yspectra,line_matches,cal_states):
         #load calibration files
         self.wm_Xe,self.fm_Xe = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
@@ -245,8 +240,9 @@ class LineBrowser:
 
         self.text = ax.text(0.05, 0.95, 'Pick red reference line',transform=ax.transAxes, va='top')
         #self.selected,  = ax.plot([xs[0]], [ys[0]], 'o', ms=12, alpha=0.4,color='yellow', visible=False)
-        self.selected  = self.ax.axvline(self.wm[0],lw=2,alpha=0.7,color='red', visible=False)
+        self.selected  = self.ax.axvline(self.wm[0],lw=2,alpha=0.8,color='red',ymin=0.5,visible=False)
         self.selected_peak, = self.ax.plot(np.zeros(1),np.zeros(1),'bo',markersize=4,alpha=0.6,visible=False)
+        self.selected_peak_line = self.ax.axvline(np.zeros(1),color='b',lw=2,alpha=0.8,ymax=0.5,visible=False)
 
     def onpress(self, event):
         if event.key not in ('x'): return
@@ -303,8 +299,10 @@ class LineBrowser:
             self.fig.canvas.draw()
         if self.radio_label == 'Select Peak':
             self.selected_peak.set_visible(True)
+            self.selected_peak_line.set_visible(True)
             self.selected_peak.set_xdata(self.fline.get_xdata()[self.max_chopped])
             self.selected_peak.set_ydata(self.fline.get_ydata()[self.max_chopped])
+            self.selected_peak_line.set_xdata(self.fline.get_xdata()[self.max_chopped])
             self.fig.canvas.draw()
 
     def add_line(self,event):

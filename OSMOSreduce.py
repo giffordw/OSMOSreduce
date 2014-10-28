@@ -479,8 +479,8 @@ if reassign == 'n':
             fig,ax = plt.subplots(1)
             plt.subplots_adjust(right=0.8)
             for j in range(wm.size):
-                ax.axvline(wm[j],color='r')
-            line, = ax.plot(wm,fm/2.0,'ro',picker=5)# 5 points tolerance
+                ax.axvline(wm[j],color='r',alpha=0.5)
+            line, = ax.plot(wm,np.zeros(wm.size),'ro',picker=5)# 5 points tolerance
             xspectra = quad_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii]
             yspectra = (f_x[::-1]-f_x.min())/10.0
             fline, = plt.plot(xspectra,yspectra,'b',picker=5)
