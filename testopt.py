@@ -214,7 +214,7 @@ def interactive_plot_plus(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     return (quad_0*(px-2032.0)**2+px*stretch_est+shift_est,fx,stretch_est,shift_est)
 
 class LineBrowser:
-    def __init__(self,fig,ax,line,wm,fm,px,fline,xspectra,yspectra,line_matches,cal_states):
+    def __init__(self,fig,ax,line,wm,fm,px,fline,xspectra,yspectra,peaks_w,peaks_p,peaks_h,line_matches,cal_states):
         #load calibration files
         self.wm_Xe,self.fm_Xe = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
         self.wm_Xe = air_to_vacuum(self.wm_Xe)
@@ -227,6 +227,7 @@ class LineBrowser:
 
         self.lastind = 0
 
+        self.j = 0
         self.px = px
         self.fig = fig
         self.ax = ax
@@ -235,97 +236,83 @@ class LineBrowser:
         self.fline = fline
         self.xspectra = xspectra
         self.yspectra = yspectra
+        self.peaks_w = peaks_w
+        self.peaks_p = peaks_p
+        self.peaks_h = peaks_h
         self.line_matches = line_matches
         self.cal_states = cal_states
-        self.radio_label = 'Select Line'
+        self.mindist_el, = np.where(self.peaks_w == self.line_matches['peaks_w'][self.j])
         
-        self.text = ax.text(0.05, 0.95, 'Pick red reference line',transform=ax.transAxes, va='top')
+        #self.text = ax.text(0.05, 0.95, 'Pick red reference line',transform=ax.transAxes, va='top')
         #self.selected,  = ax.plot([xs[0]], [ys[0]], 'o', ms=12, alpha=0.4,color='yellow', visible=False)
-        self.selected  = self.ax.axvline(self.wm[0],lw=2,alpha=0.8,color='red',ymin=0.5,visible=False)
-        self.selected_peak, = self.ax.plot(np.zeros(1),np.zeros(1),'bo',markersize=4,alpha=0.6,visible=False)
-        self.selected_peak_line = self.ax.axvline(np.zeros(1),color='b',lw=2,alpha=0.8,ymax=0.5,visible=False)
+        self.selected  = self.ax.axvline(self.line_matches['lines'][self.j],lw=3,alpha=0.5,color='red',ymin=0.5)
+        self.selected_peak, = self.ax.plot(self.line_matches['peaks_w'][self.j],self.line_matches['peaks_h'][self.j],'o',mec='orange',markersize=8,alpha=0.7,mfc='None',mew=3,visible=True)
+        self.selected_peak_line = self.ax.axvline(self.line_matches['peaks_w'][self.j],color='b',lw=4,alpha=0.3,ymax=0.5,visible=True)
+        self.reset_lims()
+
+    def update_current(self):
+        if self.j >= len(self.line_matches['peaks_w']):
+            print 'done with plot'
+            plt.close()
+            return
+        self.selected_peak.set_xdata(self.line_matches['peaks_w'][self.j])
+        self.selected_peak.set_ydata(self.line_matches['peaks_h'][self.j])
+        self.selected.set_xdata(self.line_matches['lines'][self.j])
+        self.selected_peak_line.set_xdata(self.line_matches['peaks_w'][self.j])
+        
+        xlim = self.ax.get_xlim()
+        ylim = self.ax.get_ylim()
+        if self.line_matches['lines'][self.j] > xlim[1]:
+            self.reset_lims()    
+        self.fig.canvas.draw()
+    
+    def reset_lims(self):
+        self.ax.set_xlim(self.line_matches['peaks_w'][self.j] - 100, self.line_matches['peaks_w'][self.j] + 500.0)
+        xlims = self.ax.get_xlim()
+        y_in = self.yspectra[np.where((self.xspectra>xlims[0])&(self.xspectra<xlims[1]))]
+        self.ax.set_ylim(top=np.max(y_in)*1.1)
 
     def onpress(self, event):
-        if event.key not in ('x'): return
-        if event.key=='x':
-            print 'added '+self.radio_label[-4:]
-            self.add_line(True)
-            return
+        if event.key not in ('n','a','r'): return
+        if event.key=='n':
+            self.next_line()
+        if event.key=='r':
+            self.replace()
+        if event.key=='d':
+            self.delete()
+        return
 
-    def onpick(self, event):
-        if self.radio_label == 'Select Line':
-            if event.artist!=self.line: return True
 
-            N = len(event.ind)
-            if not N: return True
+    def onclick(self, event):
+        if event.inaxes == self.ax:
+            if event.button == 1:
 
-            # the click locations
-            x = event.mouseevent.xdata
-            y = event.mouseevent.ydata
+                # the click locations
+                x = event.xdata
+                y = event.ydata
+        
+                self.mindist_el = np.argsort(np.abs(self.peaks_w-x))[0]
+                self.update_circle()
 
-            distances = x-self.wm[event.ind]
-            indmin = distances.argmin()
-            self.dataind = event.ind[indmin]
+    def update_circle(self):
+        self.selected_peak.set_xdata([self.peaks_w[self.mindist_el]])
+        self.selected_peak.set_ydata([self.peaks_h[self.mindist_el]])
+        self.fig.canvas.draw()
 
-            self.lastind = self.dataind
-            self.update()
-        if self.radio_label == 'Select Peak':
-            if event.artist!=self.fline: return True
+    def replace(self,event):
+        self.line_matches['peaks_p'][self.j] = self.peaks_p[self.mindist_el]
+        self.line_matches['peaks_w'][self.j] = self.peaks_w[self.mindist_el]
+        self.line_matches['peaks_h'][self.j] = self.peaks_h[self.mindist_el]
+        self.next_line()
+        return
 
-            N = len(event.ind)
-            if not N: return True
+    def next_go(self,event):
+        self.next_line()
 
-            # the click locations
-            x = event.mouseevent.xdata
-            y = event.mouseevent.ydata
-            
-            self.chopped_ind, = np.where(np.abs(self.fline.get_xdata()-x) <= 10)
-            self.max_chopped = self.chopped_ind[self.fline.get_ydata()[self.chopped_ind] == np.max(self.fline.get_ydata()[self.chopped_ind])]
-            self.update()
-
-    def update(self):
-        if self.radio_label == 'Select Line':
-            if self.lastind is None: return
-
-            self.dataind = self.lastind
-
-            #ax2.cla()
-            #ax2.plot(X[dataind])
-
-            #ax2.text(0.05, 0.9, 'mu=%1.3f\nsigma=%1.3f'%(xs[dataind], ys[dataind]),transform=ax2.transAxes, va='top')
-            #ax2.set_ylim(-0.5, 1.5)
-            self.selected.set_visible(True)
-            self.selected.set_xdata(self.wm[self.dataind])
-
-            self.fig.canvas.draw()
-        if self.radio_label == 'Select Peak':
-            self.selected_peak.set_visible(True)
-            self.selected_peak_line.set_visible(True)
-            self.selected_peak.set_xdata(self.fline.get_xdata()[self.max_chopped])
-            self.selected_peak.set_ydata(self.fline.get_ydata()[self.max_chopped])
-            self.selected_peak_line.set_xdata(self.fline.get_xdata()[self.max_chopped])
-            self.fig.canvas.draw()
-
-    def add_line(self,event):
-        if self.radio_label == 'Select Line':
-            if self.wm[self.dataind] not in self.line_matches['lines']: #don't allow duplicates
-                print 'Adding line'
-                self.line_matches['lines'].append(self.wm[self.dataind])
-                self.text.set_text('Pick corresponding Peak')
-                self.radioset('Select Peak')
-                self.fig.canvas.draw()
-                return
-        if self.radio_label == 'Select Peak':
-            if self.px[self.max_chopped][0] not in self.line_matches['peaks']:
-                print 'Adding peak'
-                self.line_matches['peaks'].append(self.px[self.max_chopped][0])
-                self.text.set_text('Pick red reference line')
-                self.radioset('Select Line')
-                self.fig.canvas.draw()
-                return
-
-    def radioset(self,label):
-        self.radio_label = label
+    def next_line(self):
+        self.j += 1
+        self.update_current()
+        pass
 
     def set_calib_lines(self,label):
         self.cal_states[label] = not self.cal_states[label]
@@ -334,7 +321,6 @@ class LineBrowser:
         self.ax.cla()
         self.wm = []
         self.fm = []
-        print 'axes should be cleared'
         
         if self.cal_states['Xe']: 
             self.wm.extend(self.wm_Xe)
@@ -361,21 +347,16 @@ class LineBrowser:
         self.ax.set_ylim(yl)
         self.fig.canvas.draw()
         
+    def delete_b(self,event):
+        self.delete()
 
-    def undo(self,event):
-        if self.radio_label == 'Select Line': #then undo last peak addition
-            self.line_matches['peaks'].pop()
-            self.text.set_text('Re-pick corresponding Peak')
-            self.radioset('Select Peak')
-            self.fig.canvas.draw()
-            return
-        if self.radio_label == 'Select Peak': #then undo last line addition
-            self.line_matches['lines'].pop()
-            self.text.set_text('Re-pick red reference line')
-            self.radioset('Select Line')
-            self.selected.set_xdata(self.line_matches['lines'][-1])
-            self.fig.canvas.draw()
-            return
+    def delete(self):
+        self.line_matches['lines'].pop(self.j)
+        self.line_matches['peaks_p'].pop(self.j)
+        self.line_matches['peaks_w'].pop(self.j)
+        self.line_matches['peaks_h'].pop(self.j)
+        self.update_current()
+        return
 
 
 

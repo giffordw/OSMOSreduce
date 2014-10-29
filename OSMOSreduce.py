@@ -233,9 +233,14 @@ Gal_dat = pd.DataFrame({'RA':RA[1:SLIT_WIDTH.size],'DEC':DEC[1:SLIT_WIDTH.size],
 ############################
 #Query SDSS for galaxy data#
 ############################
-#returns a Pandas dataframe with columns
-#objID','SpecObjID','ra','dec','umag','gmag','rmag','imag','zmag','redshift','photo_z','extra'
-redshift_dat = query_galaxies(Gal_dat.RA,Gal_dat.DEC)
+if os.path.isfile(clus_id+'/'+clus_id+'_sdssinfo.csv'):
+    redshift_dat = pd.read_csv(clus_id+'/'+clus_id+'_sdssinfo.csv')
+else:
+    #returns a Pandas dataframe with columns
+    #objID','SpecObjID','ra','dec','umag','gmag','rmag','imag','zmag','redshift','photo_z','extra'
+    redshift_dat = query_galaxies(Gal_dat.RA,Gal_dat.DEC)
+    redshift_dat.to_csv(clus_id+'/'+clus_id+'_sdssinfo.csv',index=False)
+
 
 #merge into Gal_dat
 Gal_dat = Gal_dat.join(redshift_dat)
@@ -474,25 +479,26 @@ if reassign == 'n':
             stretch_est[ii],shift_est[ii],quad_est[ii] = interactive_plot(p_x,f_x,0.70,0.0,0.0,cube_est[ii],fourth_est[ii],fifth_est[ii],Gal_dat.FINAL_SLIT_X_FLIP[ii])
 
             #run peak identifier and match lines to peaks
-            line_matches = {'lines':[],'peaks':[]}
+            line_matches = {'lines':[],'peaks_p':[],'peaks_w':[],'peaks_h':[]}
             xspectra = quad_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii]
-            fydat = f_x[::-1] - signal.medfilt(f_x[::-1],171)
-            fyreal = f_x[::-1]
-            peaks = argrelextrema(fydat,np.greater)
-            fxpeak = xspectra[peaks]
-            fxrpeak = p_x[peaks]
-            fypeak = fydat[peaks]
-            fyrpeak = fyreal[peaks]
-            noise = np.std(np.sort(fydat)[:np.round(fydat.size*0.5)])
-            fxpeak = fxpeak[fypeak>noise]
-            fxrpeak = fxrpeak[fypeak>noise]
-            fypeak = fyrpeak[fypeak>noise]
+            fydat = f_x[::-1] - signal.medfilt(f_x[::-1],171) #used to find noise
+            fyreal = (f_x[::-1]-f_x.min())/10.0
+            peaks = argrelextrema(fydat,np.greater) #find peaks
+            fxpeak = xspectra[peaks] #peaks in wavelength
+            fxrpeak = p_x[peaks] #peaks in pixels
+            fypeak = fydat[peaks] #peaks heights (for noise)
+            fyrpeak = fyreal[peaks] #peak heights
+            noise = np.std(np.sort(fydat)[:np.round(fydat.size*0.5)]) #noise level
+            fxpeak = fxpeak[fypeak>noise] #significant peaks in wavelength
+            fxrpeak = fxrpeak[fypeak>noise] #significant peaks in pixels
+            fypeak = fyrpeak[fypeak>noise] #significant peaks height
             for j in range(wm.size):
-                line_matches['lines'].append(wm[j])
-                line_matches['peaks'].append(fxrpeak[np.argsort(np.abs(wm[j]-fxpeak))][0])
+                line_matches['lines'].append(wm[j]) #line positions
+                line_matches['peaks_p'].append(fxrpeak[np.argsort(np.abs(wm[j]-fxpeak))][0]) #closest peak (in pixels)
+                line_matches['peaks_w'].append(fxpeak[np.argsort(np.abs(wm[j]-fxpeak))][0]) #closest peak (in wavelength)
+                line_matches['peaks_h'].append(fypeak[np.argsort(np.abs(wm[j]-fxpeak))][0]) #closest peak (height)
             
             #Pick lines for initial parameter fit
-            #line_matches = {'lines':[],'peaks':[]}
             cal_states = {'Xe':True,'Ar':False,'HgNe':False,'Ne':False}
             fig,ax = plt.subplots(1)
             plt.subplots_adjust(right=0.8)
@@ -500,22 +506,26 @@ if reassign == 'n':
                 ax.axvline(wm[j],color='r',alpha=0.5)
             line, = ax.plot(wm,np.zeros(wm.size),'ro',picker=5)# 5 points tolerance
             yspectra = (f_x[::-1]-f_x.min())/10.0
-            fline, = plt.plot(xspectra,yspectra,'b',picker=5)
-            browser = LineBrowser(fig,ax,line,wm,fm,p_x,fline,xspectra,yspectra,line_matches,cal_states)
-            fig.canvas.mpl_connect('pick_event', browser.onpick)
+            fline, = plt.plot(xspectra,yspectra,'b',lw=1.5,picker=5)
+            estx = quad_est[ii]*(line_matches['peaks_p']-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(line_matches['peaks_p']-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii]
+            browser = LineBrowser(fig,ax,line,wm,fm,p_x,fline,xspectra,yspectra,fxpeak,fxrpeak,fypeak,line_matches,cal_states)
+            fig.canvas.mpl_connect('button_press_event', browser.onclick)
             fig.canvas.mpl_connect('key_press_event',browser.onpress)
             closeax = plt.axes([0.83, 0.7, 0.15, 0.1])
-            button = Button(closeax, 'Add Line (x)', hovercolor='0.975')
-            button.on_clicked(browser.add_line)
-            undoax = plt.axes([0.83,0.5,0.15,0.1])
-            undo_button = Button(undoax,'Undo',hovercolor='0.975')
-            undo_button.on_clicked(browser.undo)
-            stateax = plt.axes([0.83,0.3,0.15,0.1])
+            button = Button(closeax, 'Replace', hovercolor='0.975')
+            button.on_clicked(browser.replace)
+            nextax = plt.axes([0.83, 0.5, 0.15, 0.1])
+            nextbutton = Button(nextax, 'Next', hovercolor='0.975')
+            nextbutton.on_clicked(browser.next_go)
+            deleteax = plt.axes([0.83,0.3,0.15,0.1])
+            delete_button = Button(deleteax,'Delete',hovercolor='0.975')
+            delete_button.on_clicked(browser.delete_b)
+            stateax = plt.axes([0.83,0.1,0.15,0.1])
             states = CheckButtons(stateax,cal_states.keys(), cal_states.values())
             states.on_clicked(browser.set_calib_lines)
             plt.show()
                 
-            params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),np.sort(browser.line_matches['lines']),p0=[shift_est[ii],stretch_est[ii],quad_est[ii],1e-8,1e-12,1e-12])
+            params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),np.sort(browser.line_matches['lines']),p0=[shift_est[ii],stretch_est[ii],quad_est[ii],1e-8,1e-12,1e-12])
             cube_est = cube_est + params[3]
             fourth_est = fourth_est + params[4]
             fifth_est = fifth_est + params[5]
