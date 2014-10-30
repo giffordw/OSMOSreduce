@@ -4,7 +4,7 @@ In the .oms file, the first and last RA/DEC represent a reference slit at the bo
 
 Please list the calibration lamp(s) used during your observations here
 '''
-cal_lamp = ['Xenon','Argon'] #'Xenon','Argon','HgNe','Neon'
+cal_lamp = ['Xenon'] #'Xenon','Argon','HgNe','Neon'
 print 'Using calibration lamps: ', cal_lamp
 '''
 
@@ -622,7 +622,7 @@ if reassign == 'n':
                 d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[i])+' 4500 '+str(Gal_dat.SLIT_WIDTH[i])+') #color=green highlite=1}')
                 #stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]-(Gal_dat.FINAL_SLIT_X_FLIP[i]*stretch_est[0]-Gal_dat.FINAL_SLIT_X_FLIP[i-1]*stretch_est[i-1]),quad[i-1],cube[i-1],fourth[i-1],fifth[i-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
                 reduced_slits = np.where(stretch != 0.0)
-                stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch[reduced_slits][-1],shift[reduced_slits][-1]+(Gal_dat.FINAL_SLIT_X_FLIP.values[reduced_slits][-1]-Gal_dat.FINAL_SLIT_X_FLIP[i]),quad[reduced_slits][-1],cube[reduced_slits][-1],fourth[reduced_slits][-1],fifth[reduced_slits][-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
+                stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch[reduced_slits][-1],shift[reduced_slits][-1]+(Gal_dat.FINAL_SLIT_X_FLIP.values[reduced_slits][-1]-Gal_dat.FINAL_SLIT_X_FLIP[i]),quad[reduced_slits][-1],cube[reduced_slits][-1],fourth[reduced_slits][-1],fifth[reduced_slits][-1],Gal_dat.FINAL_SLIT_X_FLIP[i],wm,fm)
 
                 #run peak identifier and match lines to peaks
                 line_matches = {'lines':[],'peaks_p':[],'peaks_w':[],'peaks_h':[]}
@@ -647,13 +647,14 @@ if reassign == 'n':
                 cal_states = {'Xe':True,'Ar':False,'HgNe':False,'Ne':False}
                 fig,ax = plt.subplots(1)
                 plt.subplots_adjust(right=0.8)
+                vlines = []
                 for j in range(wm.size):
-                    ax.axvline(wm[j],color='r')
+                    vlines.append(ax.axvline(wm[j],color='r'))
                 line, = ax.plot(wm,fm/2.0,'ro',picker=5)# 5 points tolerance
                 yspectra = (f_x[::-1]-f_x.min())/10.0
                 fline, = plt.plot(xspectra,yspectra,'b',lw=1.5,picker=5)
                 estx = quad_est[i]*(line_matches['peaks_p']-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + stretch_est[i]*(line_matches['peaks_p']-Gal_dat.FINAL_SLIT_X_FLIP[i]) + shift_est[i]
-                browser = LineBrowser(fig,ax,line,wm,fm,p_x,fline,xspectra,yspectra,fxpeak,fxrpeak,fypeak,line_matches,cal_states)
+                browser = LineBrowser(fig,ax,line,wm,fm,p_x,vlines,fline,xspectra,yspectra,fxpeak,fxrpeak,fypeak,line_matches,cal_states)
                 fig.canvas.mpl_connect('button_press_event', browser.onclick)
                 fig.canvas.mpl_connect('key_press_event',browser.onpress)
                 finishax = plt.axes([0.83,0.85,0.15,0.1])
