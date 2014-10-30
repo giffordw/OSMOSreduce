@@ -511,16 +511,19 @@ if reassign == 'n':
             browser = LineBrowser(fig,ax,line,wm,fm,p_x,fline,xspectra,yspectra,fxpeak,fxrpeak,fypeak,line_matches,cal_states)
             fig.canvas.mpl_connect('button_press_event', browser.onclick)
             fig.canvas.mpl_connect('key_press_event',browser.onpress)
-            closeax = plt.axes([0.83, 0.7, 0.15, 0.1])
-            button = Button(closeax, 'Replace', hovercolor='0.975')
-            button.on_clicked(browser.replace)
-            nextax = plt.axes([0.83, 0.5, 0.15, 0.1])
-            nextbutton = Button(nextax, 'Next', hovercolor='0.975')
+            finishax = plt.axes([0.83,0.85,0.15,0.1])
+            finishbutton = Button(finishax,'Finish',hovercolor='0.975')
+            finishbutton.on_clicked(browser.finish)
+            closeax = plt.axes([0.83, 0.65, 0.15, 0.1])
+            button = Button(closeax, 'Replace (m)', hovercolor='0.975')
+            button.on_clicked(browser.replace_b)
+            nextax = plt.axes([0.83, 0.45, 0.15, 0.1])
+            nextbutton = Button(nextax, 'Next (n)', hovercolor='0.975')
             nextbutton.on_clicked(browser.next_go)
-            deleteax = plt.axes([0.83,0.3,0.15,0.1])
-            delete_button = Button(deleteax,'Delete',hovercolor='0.975')
+            deleteax = plt.axes([0.83,0.25,0.15,0.1])
+            delete_button = Button(deleteax,'Delete (j)',hovercolor='0.975')
             delete_button.on_clicked(browser.delete_b)
-            stateax = plt.axes([0.83,0.1,0.15,0.1])
+            stateax = plt.axes([0.83,0.05,0.15,0.1])
             states = CheckButtons(stateax,cal_states.keys(), cal_states.values())
             states.on_clicked(browser.set_calib_lines)
             plt.show()
@@ -589,31 +592,56 @@ if reassign == 'n':
                 reduced_slits = np.where(stretch != 0.0)
                 stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch[reduced_slits][-1],shift[reduced_slits][-1]+(Gal_dat.FINAL_SLIT_X_FLIP.values[reduced_slits][-1]-Gal_dat.FINAL_SLIT_X_FLIP[i]),quad[reduced_slits][-1],cube[reduced_slits][-1],fourth[reduced_slits][-1],fifth[reduced_slits][-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
 
-                line_matches = {'lines':[],'peaks':[]}
+                #run peak identifier and match lines to peaks
+                line_matches = {'lines':[],'peaks_p':[],'peaks_w':[],'peaks_h':[]}
+                xspectra = quad_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + stretch_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i]) + shift_est[i]
+                fydat = f_x[::-1] - signal.medfilt(f_x[::-1],171) #used to find noise
+                fyreal = (f_x[::-1]-f_x.min())/10.0
+                peaks = argrelextrema(fydat,np.greater) #find peaks
+                fxpeak = xspectra[peaks] #peaks in wavelength
+                fxrpeak = p_x[peaks] #peaks in pixels
+                fypeak = fydat[peaks] #peaks heights (for noise)
+                fyrpeak = fyreal[peaks] #peak heights
+                noise = np.std(np.sort(fydat)[:np.round(fydat.size*0.5)]) #noise level
+                fxpeak = fxpeak[fypeak>noise] #significant peaks in wavelength
+                fxrpeak = fxrpeak[fypeak>noise] #significant peaks in pixels
+                fypeak = fyrpeak[fypeak>noise] #significant peaks height
+                for j in range(wm.size):
+                    line_matches['lines'].append(wm[j]) #line positions
+                    line_matches['peaks_p'].append(fxrpeak[np.argsort(np.abs(wm[j]-fxpeak))][0]) #closest peak (in pixels)
+                    line_matches['peaks_w'].append(fxpeak[np.argsort(np.abs(wm[j]-fxpeak))][0]) #closest peak (in wavelength)
+                    line_matches['peaks_h'].append(fypeak[np.argsort(np.abs(wm[j]-fxpeak))][0]) #closest peak (height)
+            
                 cal_states = {'Xe':True,'Ar':False,'HgNe':False,'Ne':False}
                 fig,ax = plt.subplots(1)
                 plt.subplots_adjust(right=0.8)
                 for j in range(wm.size):
                     ax.axvline(wm[j],color='r')
                 line, = ax.plot(wm,fm/2.0,'ro',picker=5)# 5 points tolerance
-                xspectra = quad_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + stretch_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i]) + shift_est[i]
                 yspectra = (f_x[::-1]-f_x.min())/10.0
-                fline, = plt.plot(xspectra,yspectra,'b',picker=5)
-                browser = LineBrowser(fig,ax,line,wm,fm,p_x,fline,xspectra,yspectra,line_matches,cal_states)
-                fig.canvas.mpl_connect('pick_event', browser.onpick)
+                fline, = plt.plot(xspectra,yspectra,'b',lw=1.5,picker=5)
+                estx = quad_est[i]*(line_matches['peaks_p']-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + stretch_est[i]*(line_matches['peaks_p']-Gal_dat.FINAL_SLIT_X_FLIP[i]) + shift_est[i]
+                browser = LineBrowser(fig,ax,line,wm,fm,p_x,fline,xspectra,yspectra,fxpeak,fxrpeak,fypeak,line_matches,cal_states)
+                fig.canvas.mpl_connect('button_press_event', browser.onclick)
                 fig.canvas.mpl_connect('key_press_event',browser.onpress)
-                closeax = plt.axes([0.83, 0.5, 0.15, 0.1])
-                button = Button(closeax, 'Add Line (x)', hovercolor='0.975')
-                button.on_clicked(browser.add_line)
-                undoax = plt.axes([0.83,0.3,0.15,0.1])
-                undo_button = Button(undoax,'Undo',hovercolor='0.975')
-                undo_button.on_clicked(browser.undo)
-                stateax = plt.axes([0.83,0.8,0.15,0.1])
+                finishax = plt.axes([0.83,0.85,0.15,0.1])
+                finishbutton = Button(finishax,'Finish',hovercolor='0.975')
+                finishbutton.on_clicked(browser.finish)
+                closeax = plt.axes([0.83, 0.65, 0.15, 0.1])
+                button = Button(closeax, 'Replace (m)', hovercolor='0.975')
+                button.on_clicked(browser.replace_b)
+                nextax = plt.axes([0.83, 0.45, 0.15, 0.1])
+                nextbutton = Button(nextax, 'Next (n)', hovercolor='0.975')
+                nextbutton.on_clicked(browser.next_go)
+                deleteax = plt.axes([0.83,0.25,0.15,0.1])
+                delete_button = Button(deleteax,'Delete (j)',hovercolor='0.975')
+                delete_button.on_clicked(browser.delete_b)
+                stateax = plt.axes([0.83,0.05,0.15,0.1])
                 states = CheckButtons(stateax,cal_states.keys(), cal_states.values())
                 states.on_clicked(browser.set_calib_lines)
                 plt.show()
                 
-                params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks'])-Gal_dat.FINAL_SLIT_X_FLIP[i]),np.sort(browser.line_matches['lines']),p0=[shift_est[i],stretch_est[i],quad_est[i],1e-8,1e-12,1e-12])
+                params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[i]),np.sort(browser.line_matches['lines']),p0=[shift_est[i],stretch_est[i],quad_est[i],1e-8,1e-12,1e-12])
                 cube_est[i] = params[3]
                 fourth_est[i] = params[4]
                 fifth_est[i] = params[5]

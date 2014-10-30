@@ -247,7 +247,7 @@ class LineBrowser:
         #self.selected,  = ax.plot([xs[0]], [ys[0]], 'o', ms=12, alpha=0.4,color='yellow', visible=False)
         self.selected  = self.ax.axvline(self.line_matches['lines'][self.j],lw=3,alpha=0.5,color='red',ymin=0.5)
         self.selected_peak, = self.ax.plot(self.line_matches['peaks_w'][self.j],self.line_matches['peaks_h'][self.j],'o',mec='orange',markersize=8,alpha=0.7,mfc='None',mew=3,visible=True)
-        self.selected_peak_line = self.ax.axvline(self.line_matches['peaks_w'][self.j],color='b',lw=4,alpha=0.3,ymax=0.5,visible=True)
+        self.selected_peak_line = self.ax.axvline(self.line_matches['peaks_w'][self.j],color='cyan',lw=4,alpha=0.3,ymax=0.5,visible=True)
         self.reset_lims()
 
     def update_current(self):
@@ -260,26 +260,31 @@ class LineBrowser:
         self.selected.set_xdata(self.line_matches['lines'][self.j])
         self.selected_peak_line.set_xdata(self.line_matches['peaks_w'][self.j])
         
-        xlim = self.ax.get_xlim()
-        ylim = self.ax.get_ylim()
+        xlim = self.ax.xaxis.get_view_interval()
+        ylim = self.ax.yaxis.get_view_interval()
         if self.line_matches['lines'][self.j] > xlim[1]:
+            print xlim
+            print self.line_matches['lines'][self.j]
+            print 'resetting axis'
             self.reset_lims()    
         self.fig.canvas.draw()
     
     def reset_lims(self):
         self.ax.set_xlim(self.line_matches['peaks_w'][self.j] - 100, self.line_matches['peaks_w'][self.j] + 500.0)
-        xlims = self.ax.get_xlim()
+        xlims = self.ax.xaxis.get_view_interval()
         y_in = self.yspectra[np.where((self.xspectra>xlims[0])&(self.xspectra<xlims[1]))]
         self.ax.set_ylim(top=np.max(y_in)*1.1)
 
     def onpress(self, event):
-        if event.key not in ('n','a','r'): return
+        if event.key not in ('n','m','j','b'): return
         if event.key=='n':
             self.next_line()
-        if event.key=='r':
+        if event.key=='m':
             self.replace()
-        if event.key=='d':
+        if event.key=='j':
             self.delete()
+        if event.key=='b':
+            self.back_line()
         return
 
 
@@ -299,12 +304,21 @@ class LineBrowser:
         self.selected_peak.set_ydata([self.peaks_h[self.mindist_el]])
         self.fig.canvas.draw()
 
-    def replace(self,event):
+    def replace_b(self,event):
+        self.replace()
+
+    def replace(self):
         self.line_matches['peaks_p'][self.j] = self.peaks_p[self.mindist_el]
         self.line_matches['peaks_w'][self.j] = self.peaks_w[self.mindist_el]
         self.line_matches['peaks_h'][self.j] = self.peaks_h[self.mindist_el]
         self.next_line()
         return
+    
+    def back_line(self):
+        if self.j >= 1:
+            self.j -= 1
+            self.update_current()
+        else: return
 
     def next_go(self,event):
         self.next_line()
@@ -312,7 +326,15 @@ class LineBrowser:
     def next_line(self):
         self.j += 1
         self.update_current()
-        pass
+
+    def finish(self,event):
+        self.line_matches['peaks_p'] = self.line_matches['peaks_p'][:self.j]
+        self.line_matches['peaks_w'] = self.line_matches['peaks_w'][:self.j]
+        self.line_matches['peaks_h'] = self.line_matches['peaks_h'][:self.j]
+        self.line_matches['lines'] = self.line_matches['lines'][:self.j]
+        print 'FINISHED GALAXY CALIBRATION'
+        plt.close()
+        return
 
     def set_calib_lines(self,label):
         self.cal_states[label] = not self.cal_states[label]
@@ -343,8 +365,8 @@ class LineBrowser:
         self.selected = self.ax.axvline(self.wm[0],lw=2,alpha=0.7,color='red', visible=False)
         self.selected_peak, = self.ax.plot(np.zeros(1),np.zeros(1),'bo',markersize=4,alpha=0.6,visible=False)
         self.fline, = self.ax.plot(self.xspectra,self.yspectra,'b',picker=5)
-        self.ax.set_xlim(xl)
-        self.ax.set_ylim(yl)
+        #self.ax.set_xlim(xl)
+        #self.ax.set_ylim(yl)
         self.fig.canvas.draw()
         
     def delete_b(self,event):
