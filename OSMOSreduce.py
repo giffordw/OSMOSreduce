@@ -2,6 +2,12 @@
 IMPORTANT NOTES:
 In the .oms file, the first and last RA/DEC represent a reference slit at the bottom of the mask and the center of the mask respectively.
 
+Please list the calibration lamp(s) used during your observations here
+'''
+cal_lamp = ['Xenon','Argon'] #'Xenon','Argon','HgNe','Neon'
+print 'Using calibration lamps: ', cal_lamp
+'''
+
 '''
 
 import numpy as np
@@ -83,8 +89,33 @@ pixscale = 0.273 #pixel scale at for OSMOS
 xbin = 1
 ybin = 1
 yshift = 13.0
-wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
-wm = air_to_vacuum(wm)
+
+wm = []
+fm = []
+if 'Xenon' in cal_lamp:
+    wm_Xe,fm_Xe = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
+    wm_Xe = air_to_vacuum(wm_Xe)
+    wm.extend(wm_Xe)
+    fm.extend(fm_Xe)
+if 'Argon' in cal_lamp:
+    wm_Ar,fm_Ar = np.loadtxt('osmos_Argon.dat',usecols=(0,2),unpack=True)
+    wm_Ar = air_to_vacuum(wm_Ar)
+    wm.extend(wm_Ar)
+    fm.extend(fm_Ar)
+if 'HgNe' in cal_lamp:
+    wm_HgNe,fm_HgNe = np.loadtxt('osmos_HgNe.dat',usecols=(0,2),unpack=True)
+    wm_HgNe = air_to_vacuum(wm_HgNe)
+    wm.extend(wm_HgNe)
+    fm.extend(fm_HgNe)
+if 'Neon' in cal_lamp:
+    wm_Ne,fm_Ne = np.loadtxt('osmos_Ne.dat',usecols=(0,2),unpack=True)
+    wm_Ne = air_to_vacuum(wm_Ne)
+    wm.extend(wm_Ne)
+    fm.extend(fm_Ne)
+
+fm = np.array(fm)[np.argsort(wm)]
+wm = np.array(wm)[np.argsort(wm)]
+
 
 ###################
 #Define Cluster ID#
@@ -476,7 +507,7 @@ if reassign == 'n':
             f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[ii]-Gal_dat.SLIT_WIDTH[ii]/2.0:Gal_dat.FINAL_SLIT_Y[ii]+Gal_dat.SLIT_WIDTH[ii]/2.0,:],axis=0)
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' 4500 '+str(Gal_dat.SLIT_WIDTH[ii])+') #color=green highlite=1}')
-            stretch_est[ii],shift_est[ii],quad_est[ii] = interactive_plot(p_x,f_x,0.70,0.0,0.0,cube_est[ii],fourth_est[ii],fifth_est[ii],Gal_dat.FINAL_SLIT_X_FLIP[ii])
+            stretch_est[ii],shift_est[ii],quad_est[ii] = interactive_plot(p_x,f_x,0.70,0.0,0.0,cube_est[ii],fourth_est[ii],fifth_est[ii],Gal_dat.FINAL_SLIT_X_FLIP[ii],wm,fm)
 
             #run peak identifier and match lines to peaks
             line_matches = {'lines':[],'peaks_p':[],'peaks_w':[],'peaks_h':[]}
@@ -502,13 +533,14 @@ if reassign == 'n':
             cal_states = {'Xe':True,'Ar':False,'HgNe':False,'Ne':False}
             fig,ax = plt.subplots(1)
             plt.subplots_adjust(right=0.8)
+            vlines = []
             for j in range(wm.size):
-                ax.axvline(wm[j],color='r',alpha=0.5)
+                vlines.append(ax.axvline(wm[j],color='r',alpha=0.5))
             line, = ax.plot(wm,np.zeros(wm.size),'ro',picker=5)# 5 points tolerance
             yspectra = (f_x[::-1]-f_x.min())/10.0
             fline, = plt.plot(xspectra,yspectra,'b',lw=1.5,picker=5)
             estx = quad_est[ii]*(line_matches['peaks_p']-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(line_matches['peaks_p']-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii]
-            browser = LineBrowser(fig,ax,line,wm,fm,p_x,fline,xspectra,yspectra,fxpeak,fxrpeak,fypeak,line_matches,cal_states)
+            browser = LineBrowser(fig,ax,line,wm,fm,p_x,vlines,fline,xspectra,yspectra,fxpeak,fxrpeak,fypeak,line_matches,cal_states)
             fig.canvas.mpl_connect('button_press_event', browser.onclick)
             fig.canvas.mpl_connect('key_press_event',browser.onpress)
             finishax = plt.axes([0.83,0.85,0.15,0.1])
@@ -523,9 +555,9 @@ if reassign == 'n':
             deleteax = plt.axes([0.83,0.25,0.15,0.1])
             delete_button = Button(deleteax,'Delete (j)',hovercolor='0.975')
             delete_button.on_clicked(browser.delete_b)
-            stateax = plt.axes([0.83,0.05,0.15,0.1])
-            states = CheckButtons(stateax,cal_states.keys(), cal_states.values())
-            states.on_clicked(browser.set_calib_lines)
+            #stateax = plt.axes([0.83,0.05,0.15,0.1])
+            #states = CheckButtons(stateax,cal_states.keys(), cal_states.values())
+            #states.on_clicked(browser.set_calib_lines)
             plt.show()
                 
             params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),np.sort(browser.line_matches['lines']),p0=[shift_est[ii],stretch_est[ii],quad_est[ii],1e-8,1e-12,1e-12])
@@ -636,9 +668,9 @@ if reassign == 'n':
                 deleteax = plt.axes([0.83,0.25,0.15,0.1])
                 delete_button = Button(deleteax,'Delete (j)',hovercolor='0.975')
                 delete_button.on_clicked(browser.delete_b)
-                stateax = plt.axes([0.83,0.05,0.15,0.1])
-                states = CheckButtons(stateax,cal_states.keys(), cal_states.values())
-                states.on_clicked(browser.set_calib_lines)
+                #stateax = plt.axes([0.83,0.05,0.15,0.1])
+                #states = CheckButtons(stateax,cal_states.keys(), cal_states.values())
+                #states.on_clicked(browser.set_calib_lines)
                 plt.show()
                 
                 params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[i]),np.sort(browser.line_matches['lines']),p0=[shift_est[i],stretch_est[i],quad_est[i],1e-8,1e-12,1e-12])

@@ -3,7 +3,7 @@ import matplotlib
 matplotlib.use('Qt4Agg')
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
-from matplotlib.widgets import Slider, Button, RadioButtons
+from matplotlib.widgets import Slider, Button, RadioButtons, CheckButtons
 from matplotlib.lines import Line2D
 from scipy.stats import spearmanr,pearsonr,kendalltau
 from scipy.optimize import minimize
@@ -88,23 +88,33 @@ def wavecalibrate(px,fx,slit_x,stretch_est=0.0,shift_est=0.0,quad_est=0.0,cube_e
 
 
 
-def interactive_plot(px,fx,stretch_0,shift_0,quad_0,cube_0,fourth_0,fifth_0,slit_x):
+def interactive_plot(px,fx,stretch_0,shift_0,quad_0,cube_0,fourth_0,fifth_0,slit_x,wm,fm):
     #flip and normalize flux
     fx = fx - np.min(fx)
     fx = fx[::-1]
-
+    '''
     #prep calibration lines into 1d spectra
-    wm,fm = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
-    wm = air_to_vacuum(wm)
+    wm_Xe,fm_Xe = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
+    wm_Xe = air_to_vacuum(wm_Xe)
+    wm_Ar,fm_Ar = np.loadtxt('osmos_Argon.dat',usecols=(0,2),unpack=True)
+    wm_Ar = air_to_vacuum(wm_Ar)
+    wm_HgNe,fm_HgNe = np.loadtxt('osmos_HgNe.dat',usecols=(0,2),unpack=True)
+    wm_HgNe = air_to_vacuum(wm_HgNe)
+    wm_Ne,fm_Ne = np.loadtxt('osmos_Ne.dat',usecols=(0,2),unpack=True)
+    wm_Ne = air_to_vacuum(wm_Ne)
+    '''
+    cal_states = {'Xe':True,'Ar':False,'HgNe':False,'Ne':False}
     
     fig,ax = plt.subplots()
     plt.subplots_adjust(left=0.25,bottom=0.30)
-    l, = plt.plot(fifth_0*(px-slit_x)**5 + fourth_0*(px-slit_x)**4 + cube_0*(px-slit_x)**3 + quad_0*(px-slit_x)**2 + stretch_0*(px-slit_x) + shift_0,fx/10.0,'b')
+    l, = ax.plot(fifth_0*(px-slit_x)**5 + fourth_0*(px-slit_x)**4 + cube_0*(px-slit_x)**3 + quad_0*(px-slit_x)**2 + stretch_0*(px-slit_x) + shift_0,fx/10.0,'b')
     plt.plot(wm,fm/2.0,'ro')
-    for i in range(wm.size): plt.axvline(wm[i],color='r')
-    plt.xlim(4000,6000)
-    plt.ylim(0,3500)
+    for i in range(wm.size): ax.axvline(wm[i],color='r')
+    ax.set_xlim(4000,6000)
+    ax.set_ylim(0,3500)
 
+    #stateax = plt.axes([0.1,0.25,0.15,0.1])
+    #states = CheckButtons(stateax,cal_states.keys(), cal_states.values())
     
     axstretch = plt.axes([0.25,0.17,0.65,0.03])
     axshift = plt.axes([0.25,0.22,0.65,0.03])
@@ -123,6 +133,36 @@ def interactive_plot(px,fx,stretch_0,shift_0,quad_0,cube_0,fourth_0,fifth_0,slit
     fn_slide_quad = Slider(fn_axquad,'Fine Quad',-4e-5,4e-5,valinit=fn_quad_0)
     close_button = Button(close_ax,'Close Plots', hovercolor='0.80')
 
+    def set_calib_lines(label):
+        cal_states[label] = not cal_states[label]
+        xl = ax.get_xlim()
+        yl = ax.get_ylim()
+        ax.cla()
+        wm = []
+        fm = []
+        
+        if cal_states['Xe']: 
+            wm.extend(wm_Xe)
+            fm.extend(fm_Xe)
+        if cal_states['Ar']:
+            wm.extend(wm_Ar)
+            fm.extend(fm_Ar)
+        if cal_states['HgNe']:
+            wm.extend(wm_HgNe)
+            fm.extend(fm_HgNe)
+        if cal_states['Ne']:
+            wm.extend(wm_Ne)
+            fm.extend(fm_Ne)
+        wm = np.array(wm)
+        fm = np.array(fm)
+        for j in range(wm.size):
+            ax.axvline(wm[j],color='r')
+        line, = ax.plot(np.array(wm),np.array(fm)/2.0,'ro',picker=5)# 5 points tolerance
+        l, = ax.plot(fifth_0*(px-slit_x)**5 + fourth_0*(px-slit_x)**4 + cube_0*(px-slit_x)**3 + (quad_0+fn_slide_quad.val)*(px-slit_x)**2 + (slide_stretch.val+fn_slide_stretch.val)*(px-slit_x) + (slide_shift.val+fn_slide_shift.val),fx/10.0,'b')
+        ax.set_xlim(xl)
+        ax.set_ylim(yl)
+        fig.canvas.draw()
+
     def update(val):
         l.set_xdata((quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px-slit_x)+(slide_shift.val+fn_slide_shift.val))
         fig.canvas.draw_idle()
@@ -131,6 +171,7 @@ def interactive_plot(px,fx,stretch_0,shift_0,quad_0,cube_0,fourth_0,fifth_0,slit
         #slide_stretch.val = slide_stretch.val + fn_slide_stretch.val
         #slide_shift.val = slide_shift.val + fn_slide_shift.val
         fig.canvas.draw_idle()
+
     def close_plots(event):
         plt.close()
     slide_stretch.on_changed(update)
@@ -139,6 +180,7 @@ def interactive_plot(px,fx,stretch_0,shift_0,quad_0,cube_0,fourth_0,fifth_0,slit
     fn_slide_shift.on_changed(fineupdate)
     fn_slide_quad.on_changed(fineupdate)
     close_button.on_clicked(close_plots)
+    #states.on_clicked(set_calib_lines)
     plt.show()
     shift_est = slide_shift.val+fn_slide_shift.val
     stretch_est = slide_stretch.val+fn_slide_stretch.val
@@ -214,7 +256,7 @@ def interactive_plot_plus(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     return (quad_0*(px-2032.0)**2+px*stretch_est+shift_est,fx,stretch_est,shift_est)
 
 class LineBrowser:
-    def __init__(self,fig,ax,line,wm,fm,px,fline,xspectra,yspectra,peaks_w,peaks_p,peaks_h,line_matches,cal_states):
+    def __init__(self,fig,ax,line,wm,fm,px,vlines,fline,xspectra,yspectra,peaks_w,peaks_p,peaks_h,line_matches,cal_states):
         #load calibration files
         self.wm_Xe,self.fm_Xe = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
         self.wm_Xe = air_to_vacuum(self.wm_Xe)
@@ -233,6 +275,7 @@ class LineBrowser:
         self.ax = ax
         self.wm = wm
         self.line = line
+        self.vlines = vlines
         self.fline = fline
         self.xspectra = xspectra
         self.yspectra = yspectra
@@ -263,9 +306,6 @@ class LineBrowser:
         xlim = self.ax.xaxis.get_view_interval()
         ylim = self.ax.yaxis.get_view_interval()
         if self.line_matches['lines'][self.j] > xlim[1]:
-            print xlim
-            print self.line_matches['lines'][self.j]
-            print 'resetting axis'
             self.reset_lims()    
         self.fig.canvas.draw()
     
@@ -340,10 +380,12 @@ class LineBrowser:
         self.cal_states[label] = not self.cal_states[label]
         xl = self.ax.get_xlim()
         yl = self.ax.get_ylim()
-        self.ax.cla()
+        #self.ax.cla()
         self.wm = []
         self.fm = []
-        
+        for vl in self.vlines:
+            self.ax.lines.remove(vl)
+        self.vlines = []
         if self.cal_states['Xe']: 
             self.wm.extend(self.wm_Xe)
             self.fm.extend(self.fm_Xe)
@@ -358,15 +400,15 @@ class LineBrowser:
             self.fm.extend(self.fm_Ne)
         self.wm = np.array(self.wm)
         self.fm = np.array(self.fm)
-        print self.wm
+        
         for j in range(self.wm.size):
-            self.ax.axvline(self.wm[j],color='r')
-        self.line, = self.ax.plot(np.array(self.wm),np.array(self.fm)/2.0,'ro',picker=5)# 5 points tolerance
-        self.selected = self.ax.axvline(self.wm[0],lw=2,alpha=0.7,color='red', visible=False)
-        self.selected_peak, = self.ax.plot(np.zeros(1),np.zeros(1),'bo',markersize=4,alpha=0.6,visible=False)
-        self.fline, = self.ax.plot(self.xspectra,self.yspectra,'b',picker=5)
-        #self.ax.set_xlim(xl)
-        #self.ax.set_ylim(yl)
+            self.vlines.append(self.ax.axvline(self.wm[j],color='r'))
+        #self.line, = self.ax.plot(np.array(self.wm),np.array(self.fm)/2.0,'ro',picker=5)# 5 points tolerance
+        #self.selected = self.ax.axvline(self.wm[0],lw=2,alpha=0.7,color='red', visible=False)
+        #self.selected_peak, = self.ax.plot(np.zeros(1),np.zeros(1),'bo',markersize=4,alpha=0.6,visible=False)
+        #self.fline, = self.ax.plot(self.xspectra,self.yspectra,'b',picker=5)
+        self.ax.set_xlim(xl)
+        self.ax.set_ylim(yl)
         self.fig.canvas.draw()
         
     def delete_b(self,event):
