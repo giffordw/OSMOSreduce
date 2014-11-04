@@ -3,6 +3,7 @@ import pdb
 from scipy.interpolate import interp1d
 from scipy.stats import pearsonr
 from scipy.stats import norm
+import matplotlib.pyplot as plt
 
 def redshift_estimate(z_est,unc,early_type_wave,early_type_flux,wave,Flux_sc):
     #Flux_sc = signal.medfilt(Flux_science[],171)
@@ -16,12 +17,13 @@ def redshift_estimate(z_est,unc,early_type_wave,early_type_flux,wave,Flux_sc):
         wavediff = np.min(wshift - 3900)
         #wavediff2 = np.min(wshift2 - 3900)
         #wavediff3 = np.min(wshift3 - 3900)
+        upper = 5500.0
         if wavediff < 0:
-            wave_range = wave[np.where((wave<4800)&(wave>3900))]
-            Flux_range = Flux_sc[np.where((wave<4800)&(wave>3900))]
+            wave_range = wave[np.where((wave<upper)&(wave>3900))]
+            Flux_range = Flux_sc[np.where((wave<upper)&(wave>3900))]
         else:
-            wave_range = wave[np.where((wave<4800+wavediff)&(wave>3900+wavediff))]
-            Flux_range = Flux_sc[np.where((wave<4800+wavediff)&(wave>3900+wavediff))]
+            wave_range = wave[np.where((wave<upper+wavediff)&(wave>3900+wavediff))]
+            Flux_range = Flux_sc[np.where((wave<upper+wavediff)&(wave>3900+wavediff))]
         #wave_range =  wave[][np.where((wave[]<np.max(early_type_wave*(1+z)))&(wave[]>np.min(w2))&(wave[]>np.min(early_type_wave*(1+z)))&(wave[]<np.max(w2)))]
         #Flux_range = Flux_science[][np.where((wave[]<np.max(early_type_wave*(1+z)))&(wave[]>np.min(w2))&(wave[]>np.min(early_type_wave*(1+z)))&(wave[]<np.max(w2)))]
         #Flux_range_corr = flux_corr(wave_range)
@@ -46,9 +48,14 @@ def redshift_estimate(z_est,unc,early_type_wave,early_type_flux,wave,Flux_sc):
 
     corr_val = (corr_val_i[np.isfinite(corr_val_i)]+1)/np.trapz((corr_val_i[np.isfinite(corr_val_i)]+1),ztest[np.isfinite(corr_val_i)])
     ztest = ztest[np.isfinite(corr_val_i)]
-    rv = norm(z_est,unc)
-    corr_val = corr_val * rv.pdf(ztest)
+    #plt.plot(ztest,corr_val,'b',alpha=0.6)
+    if z_est:
+        rv = norm(z_est,unc)
+        corr_val = corr_val * rv.pdf(ztest)
+        #plt.plot(ztest,corr_val,'b')
     redshift_est = (ztest[np.where((ztest>0.02)&(ztest<0.35))])[np.where(corr_val[np.where((ztest>0.02)&(ztest<0.35))] == np.max(corr_val[np.where((ztest>0.02)&(ztest<0.35))]))]
+    #plt.axvline(redshift_est,color='k',ls='--')
+    #plt.show()
     #redshift_est2[] = (ztest[np.where((ztest>0.05)&(ztest<0.15))])[np.where(corr_val2[np.where((ztest>0.05)&(ztest<0.15))] == np.max(corr_val2[np.where((ztest>0.05)&(ztest<0.15))]))]
     #redshift_est3[] = (ztest[np.where((ztest>0.05)&(ztest<0.15))])[np.where(corr_val3[np.where((ztest>0.05)&(ztest<0.15))] == np.max(corr_val3[np.where((ztest>0.05)&(ztest<0.15))]))]
     cor = (corr_val_i[np.where((ztest>0.02)&(ztest<0.35))])[np.where(corr_val[np.where((ztest>0.02)&(ztest<0.35))] == np.max(corr_val[np.where((ztest>0.02)&(ztest<0.35))]))]
@@ -56,4 +63,4 @@ def redshift_estimate(z_est,unc,early_type_wave,early_type_flux,wave,Flux_sc):
     #cor3[] = (corr_val3[np.where((ztest>0.05)&(ztest<0.15))])[np.where(corr_val3[np.where((ztest>0.05)&(ztest<0.15))] == np.max(corr_val3[np.where((ztest>0.05)&(ztest<0.15))]))]
     #plt.plot(ztest,corr_val)
     #plt.show()
-    return redshift_est, cor
+    return redshift_est, cor, ztest,corr_val

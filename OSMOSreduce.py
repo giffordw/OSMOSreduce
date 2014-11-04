@@ -15,6 +15,7 @@ from astropy.io import fits as pyfits
 import matplotlib
 matplotlib.use('Qt4Agg')
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 from matplotlib.widgets import RadioButtons, Button, CheckButtons
 import scipy.signal as signal
 from ds9 import *
@@ -56,8 +57,9 @@ def filter_image(img):
     return img_cr
 
 class EstimateHK:
-    def __init__(self,pspec,ax2):
+    def __init__(self,pspec,ax5):
         print 'If redshift calibration appears correct, hit "Accept and Close". Otherwise, "right click" approx. where the H and K lines are in the plotted spectrum. The program will re-correlate based on this guess.'
+        self.ax5 = ax5
         self.cid3 = pspec.figure.canvas.mpl_connect('button_press_event',self.onclick)
 
     def on_key_press(self,event):
@@ -69,7 +71,7 @@ class EstimateHK:
             self.shift_is_held = False
 
     def onclick(self,event):
-        if event.inaxes == ax2:
+        if event.inaxes == self.ax5:
             if event.button == 3:
                 print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
                 self.lam = event.xdata
@@ -759,13 +761,13 @@ sdss_elem = np.where(Gal_dat.spec_z > 0.0)[0]
 sdss_red = Gal_dat[Gal_dat.spec_z > 0.0].spec_z
 qualityval = {'Clear':np.zeros(len(Gal_dat))}
 
-est_pre_z = raw_input('Your sample contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS galaxies with spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? If not, would you like to specify your own prior for each galaxy (q)? If not, press (p) to use the sdss photo_z as a prior: ')
+est_pre_z = raw_input('Your sample contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS galaxies with spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? Would you like to specify your own prior for each galaxy (q)? Press (p) to use the sdss photo_z as a prior. Press (z) to not use any prior: ')
 
 #Choose redshift prior information
 est_enter = False
 while not est_enter:
     if est_pre_z == 's':
-        z_prior_width = 0.04
+        z_prior_width = 0.06
         est_enter = True
     elif est_pre_z == 'p':
         z_prior_width = 0.06
@@ -773,8 +775,11 @@ while not est_enter:
     elif est_pre_z == 'q':
         z_prior_width = 0.06
         est_enter = True
+    elif est_pre_z == 'z':
+        z_prior_width = 0.06
+        est_enter = True
     else:
-        est_pre_z = raw_input('Incorrect entry: Please enter either (s), (q), or (p). Your sample contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS galaxies with spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? If not, would you like to specify your own prior for each galaxy (q)? If not, press (p) to use the sdss photo_z as a prior: ')
+        est_pre_z = raw_input('Incorrect entry: Please enter either (s), (q), (p), or (z). Your sample contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS galaxies with spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? Would you like to specify your own prior for each galaxy (q)? Press (p) to use the sdss photo_z as a prior. Press (z) to not use any prior: ')
 
 
 for k in range(len(Gal_dat)):
@@ -805,6 +810,8 @@ for k in range(len(Gal_dat)):
                 pre_z_est = np.median(Gal_dat.spec_z[Gal_dat.spec_z > 0.0])
             if est_pre_z == 'p':
                 pre_z_est = Gal_dat.photo_z[k]
+            if est_pre_z == 'z':
+                pre_z_est = None
             elif est_pre_z == 'q':
                 print 'Take a look at the plotted galaxy spectrum and note, approximately, at what wavelength do the H and K lines exist? Then close the plot and enter that wavelength in angstroms.'
                 plt.plot(wave[k],Flux_science2)
@@ -813,10 +820,18 @@ for k in range(len(Gal_dat)):
                 HKinit = raw_input('HK approx. wavelength (A): ')
                 pre_z_est = np.float(HKinit)/3950.0 - 1
 
-            redshift_est[k],cor[k] = redshift_estimate(pre_z_est,z_prior_width,early_type_wave,early_type_flux,wave[k],Flux_sc)
-            fig = plt.figure()
-            ax2 = fig.add_subplot(111)
+            redshift_est[k],cor[k],ztest,corr_val = redshift_estimate(pre_z_est,z_prior_width,early_type_wave,early_type_flux,wave[k],Flux_sc)
+            fig = plt.figure(figsize=(10, 8)) 
+            gs = gridspec.GridSpec(2, 1, height_ratios=[2, 1])
+            ax2 = plt.subplot(gs[0])
+            ax = plt.subplot(gs[1])
             plt.subplots_adjust(right=0.8)
+
+            ax.plot(ztest,corr_val,'b')
+            ax.axvline(redshift_est[k],color='k',ls='--')
+            ax.set_xlabel('Redshift')
+            ax.set_ylabel('Correlation')
+
             pspec, = ax2.plot(wave[k],Flux_science2)
             ax2.axvline(3725.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='blue')
             ax2.axvline(3968.5*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
@@ -842,25 +857,35 @@ for k in range(len(Gal_dat)):
                 plt.close()
             button.on_clicked(closeplot)
             ax2.set_xlim(3800,5100)
+            ax2.set_xlabel('Wavelength (A)')
+            ax2.set_ylabel('Counts')
             plt.show()
             try:
                 pre_lam_est = HK_est.lam
                 pre_z_est = pre_lam_est/3950.0 - 1.0
-                redshift_est[k],cor[k] = redshift_estimate(pre_z_est,z_prior_width,early_type_wave,early_type_flux,wave[k],Flux_sc)
+                redshift_est[k],cor[k],ztest,corr_val = redshift_estimate(pre_z_est,z_prior_width,early_type_wave,early_type_flux,wave[k],Flux_sc)
                 print 'Using prior given by user'
-                figure = plt.figure()
-                ax = figure.add_subplot(111)
+                fig2 = plt.figure(figsize=(10, 8)) 
+                gs2 = gridspec.GridSpec(2, 1, height_ratios=[2, 1])
+                ax3 = plt.subplot(gs2[0])
+                ax4 = plt.subplot(gs2[1])
                 plt.subplots_adjust(right=0.8)
-                spectra, = ax.plot(wave[k]/(1+redshift_est[k]),Flux_science2)
-                ax.axvline(3725.5,ls='--',alpha=0.7,c='blue')
-                ax.axvline(3968.5,ls='--',alpha=0.7,c='red')
-                ax.axvline(3933.7,ls='--',alpha=0.7,c='red')
-                ax.axvline(4102.9,ls='--',alpha=0.7,c='orange')
-                ax.axvline(4304.0,ls='--',alpha=0.7,c='orange')
-                ax.axvline(4862.0,ls='--',alpha=0.7,c='orange')
-                ax.axvline(4959.0,ls='--',alpha=0.7,c='blue')
-                ax.axvline(5007.0,ls='--',alpha=0.7,c='blue')
-                ax.axvline(5175.0,ls='--',alpha=0.7,c='orange')
+
+                ax4.plot(ztest,corr_val,'b')
+                ax4.axvline(redshift_est[k],color='k',ls='--')
+                ax4.set_xlabel('Redshift')
+                ax4.set_ylabel('Correlation')
+
+                spectra, = ax3.plot(wave[k]/(1+redshift_est[k]),Flux_science2)
+                ax3.axvline(3725.5,ls='--',alpha=0.7,c='blue')
+                ax3.axvline(3968.5,ls='--',alpha=0.7,c='red')
+                ax3.axvline(3933.7,ls='--',alpha=0.7,c='red')
+                ax3.axvline(4102.9,ls='--',alpha=0.7,c='orange')
+                ax3.axvline(4304.0,ls='--',alpha=0.7,c='orange')
+                ax3.axvline(4862.0,ls='--',alpha=0.7,c='orange')
+                ax3.axvline(4959.0,ls='--',alpha=0.7,c='blue')
+                ax3.axvline(5007.0,ls='--',alpha=0.7,c='blue')
+                ax3.axvline(5175.0,ls='--',alpha=0.7,c='orange')
                 rax = plt.axes([0.85, 0.5, 0.1, 0.2])
                 if qualityval['Clear'][k] == 0:
                     radio = RadioButtons(rax, ('Unclear', 'Clear'))
@@ -870,18 +895,19 @@ for k in range(len(Gal_dat)):
                 closeax = plt.axes([0.83, 0.3, 0.15, 0.1])
                 button = Button(closeax, 'Accept & Close', hovercolor='0.975')
                 button.on_clicked(closeplot)
-                ax.set_xlim(3500,4600)
-                print 'got to drag'
-                spectra2 = DragSpectra(spectra,Flux_science2,ax)
-                figure.canvas.mpl_connect('motion_notify_event',spectra2.on_motion)
-                figure.canvas.mpl_connect('button_press_event',spectra2.on_press)
-                figure.canvas.mpl_connect('button_release_event',spectra2.on_release)
+                ax3.set_xlim(3500,4600)
+                print 'Dragging enabled'
+                ax3.set_xlabel('Wavelength (A)')
+                ax3.set_ylabel('Counts')
+                spectra2 = DragSpectra(spectra,Flux_science2,ax3)
+                fig2.canvas.mpl_connect('motion_notify_event',spectra2.on_motion)
+                fig2.canvas.mpl_connect('button_press_event',spectra2.on_press)
+                fig2.canvas.mpl_connect('button_release_event',spectra2.on_release)
                 plt.show()
                 total_new_shift = spectra2.dx_tot
-                print total_new_shift
                 redshift_est[k] = (3968.5*(1+redshift_est[k]) - total_new_shift)/3968.5 - 1
-            except:
-                print 'failed redshift fix'
+            except AttributeError:
+                print 'Good redshift guess'
                 pass
             HSN[k],KSN[k],GSN[k] = sncalc(redshift_est[k],wave[k],Flux_sc)
             SNavg[k] = np.average(np.array([HSN[k],KSN[k],GSN[k]]))
@@ -894,6 +920,7 @@ for k in range(len(Gal_dat)):
     if k in sdss_elem.astype('int'):
         print 'Estimate: %.5f'%(redshift_est[k]), 'SDSS: %.5f'%(sdss_red.values[np.where(sdss_elem==k)][0])
     print 'z found for galaxy '+str(k+1)+' of '+str(len(Gal_dat))
+    print ''
 
 #Add redshift estimates, SN, Corr, and qualityflag to the Dataframe
 Gal_dat['est_z'],Gal_dat['cor'],Gal_dat['HSN'],Gal_dat['KSN'],Gal_dat['GSN'],Gal_dat['quality_flag'] = redshift_est,cor,HSN,KSN,GSN,qualityval['Clear']
