@@ -164,10 +164,10 @@ def interactive_plot(px,fx,stretch_0,shift_0,quad_0,cube_0,fourth_0,fifth_0,slit
         fig.canvas.draw()
 
     def update(val):
-        l.set_xdata((quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px-slit_x)+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata(fifth_0*(px-slit_x)**5 + fourth_0*(px-slit_x)**4 + cube_0*(px-slit_x)**3 + (quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px-slit_x)+(slide_shift.val+fn_slide_shift.val))
         fig.canvas.draw_idle()
     def fineupdate(val):
-        l.set_xdata((quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px-slit_x)+(slide_shift.val+fn_slide_shift.val))
+        l.set_xdata(fifth_0*(px-slit_x)**5 + fourth_0*(px-slit_x)**4 + cube_0*(px-slit_x)**3 + (quad_0+fn_slide_quad.val)*(px-slit_x)**2+(slide_stretch.val+fn_slide_stretch.val)*(px-slit_x)+(slide_shift.val+fn_slide_shift.val))
         #slide_stretch.val = slide_stretch.val + fn_slide_stretch.val
         #slide_shift.val = slide_shift.val + fn_slide_shift.val
         fig.canvas.draw_idle()

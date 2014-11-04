@@ -497,7 +497,10 @@ if reassign == 'n':
     
     #initialize polynomial arrays
     fifth,fourth,cube,quad,stretch,shift =  np.zeros((6,len(Gal_dat)))
-    fifth_est,fourth_est,cube_est,quad_est,shift_est,stretch_est = np.zeros((6,len(Gal_dat)))
+    shift_est = 3.96e-6*(Gal_dat['FINAL_SLIT_X'] - 2500.0)**2 + 3.86e-6*(Gal_dat['FINAL_SLIT_Y'] - 2000)**2 + 4471.37
+    stretch_est = -9.47e-9*(Gal_dat['FINAL_SLIT_X'] - 1800.0)**2 - 2.66e-9*(Gal_dat['FINAL_SLIT_Y'] - 2000)**2 + 0.7135
+    quad_est = 8.12e-9*Gal_dat['FINAL_SLIT_X'] - 1.07e-6
+    fifth_est,fourth_est,cube_est = np.zeros((3,len(Gal_dat)))
     Flux = np.zeros((len(Gal_dat),4064))
     calib_data = arcfits_c.data
     p_x = np.arange(0,4064,1)
@@ -509,11 +512,11 @@ if reassign == 'n':
             f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[ii]-Gal_dat.SLIT_WIDTH[ii]/2.0:Gal_dat.FINAL_SLIT_Y[ii]+Gal_dat.SLIT_WIDTH[ii]/2.0,:],axis=0)
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' 4500 '+str(Gal_dat.SLIT_WIDTH[ii])+') #color=green highlite=1}')
-            stretch_est[ii],shift_est[ii],quad_est[ii] = interactive_plot(p_x,f_x,0.70,0.0,0.0,cube_est[ii],fourth_est[ii],fifth_est[ii],Gal_dat.FINAL_SLIT_X_FLIP[ii],wm,fm)
+            stretch_est[ii],shift_est[ii],quad_est[ii] = interactive_plot(p_x,f_x,stretch_est[ii],shift_est[ii],quad_est[ii],cube_est[ii],fourth_est[ii],fifth_est[ii],Gal_dat.FINAL_SLIT_X_FLIP[ii],wm,fm)
 
             #run peak identifier and match lines to peaks
             line_matches = {'lines':[],'peaks_p':[],'peaks_w':[],'peaks_h':[]}
-            xspectra = quad_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii]
+            xspectra = fifth_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**5 + fourth_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**4 + cube_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**3 + quad_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii]
             fydat = f_x[::-1] - signal.medfilt(f_x[::-1],171) #used to find noise
             fyreal = (f_x[::-1]-f_x.min())/10.0
             peaks = argrelextrema(fydat,np.greater) #find peaks
@@ -624,11 +627,11 @@ if reassign == 'n':
                 d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[i])+' 4500 '+str(Gal_dat.SLIT_WIDTH[i])+') #color=green highlite=1}')
                 #stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]-(Gal_dat.FINAL_SLIT_X_FLIP[i]*stretch_est[0]-Gal_dat.FINAL_SLIT_X_FLIP[i-1]*stretch_est[i-1]),quad[i-1],cube[i-1],fourth[i-1],fifth[i-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
                 reduced_slits = np.where(stretch != 0.0)
-                stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch[reduced_slits][-1],shift[reduced_slits][-1]+(Gal_dat.FINAL_SLIT_X_FLIP.values[reduced_slits][-1]-Gal_dat.FINAL_SLIT_X_FLIP[i]),quad[reduced_slits][-1],cube[reduced_slits][-1],fourth[reduced_slits][-1],fifth[reduced_slits][-1],Gal_dat.FINAL_SLIT_X_FLIP[i],wm,fm)
+                stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i],shift_est[i],quad_est[i],cube_est[i],fourth_est[i],fifth_est[i],Gal_dat.FINAL_SLIT_X_FLIP[i],wm,fm)
 
                 #run peak identifier and match lines to peaks
                 line_matches = {'lines':[],'peaks_p':[],'peaks_w':[],'peaks_h':[]}
-                xspectra = quad_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + stretch_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i]) + shift_est[i]
+                xspectra =  fifth_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**5 + fourth_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**4 + cube_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**3 + quad_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + stretch_est[i]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i]) + shift_est[i]
                 fydat = f_x[::-1] - signal.medfilt(f_x[::-1],171) #used to find noise
                 fyreal = (f_x[::-1]-f_x.min())/10.0
                 peaks = argrelextrema(fydat,np.greater) #find peaks
