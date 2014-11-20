@@ -4,7 +4,7 @@ In the .oms file, the first and last RA/DEC represent a reference slit at the bo
 
 Please list the calibration lamp(s) used during your observations here
 '''
-cal_lamp = ['Xenon'] #'Xenon','Argon','HgNe','Neon'
+cal_lamp = ['Xenon','Argon'] #'Xenon','Argon','HgNe','Neon'
 print 'Using calibration lamps: ', cal_lamp
 '''
 
@@ -412,7 +412,9 @@ redo = 'n'
 if os.path.isfile(clus_id+'/science/'+clus_id+'_science.cr.fits'):
     redo = raw_input('Detected cosmic ray filtered file exists. Do you wish to use this (y) or remove and re-calculate (n)?')
 if redo == 'n':
-    #os.remove(clus_id+'/science/'+clus_id+'_science.cr.fits')
+    try:
+        os.remove(clus_id+'/science/'+clus_id+'_science.cr.fits')
+    except: pass
     scifits_c = copy.copy(hdulists_science[0]) #copy I will use to hold the smoothed and added results
     scifits_c.data *= 0.0
     print 'SCIENCE REDUCTION'
@@ -426,7 +428,9 @@ else:
 
 print 'SKY REDUCTION'
 if redo == 'n':
-    #os.remove(clus_id+'/offset_sky/'+clus_id+'_offset.cr.fits')
+    try:
+        os.remove(clus_id+'/offset_sky/'+clus_id+'_offset.cr.fits')
+    except: pass
     skyfits_c = copy.copy(hdulist_sky)
     filt = filter_image(hdulist_sky[0].data)
     skyfits_c[0].data = filt + np.abs(np.nanmin(filt))
@@ -435,7 +439,9 @@ else: skyfits_c = pyfits.open(clus_id+'/offset_sky/'+clus_id+'_offset.cr.fits')
 
 print 'FLAT REDUCTION'
 if redo == 'n':
-    #os.remove(clus_id+'/flats/'+clus_id+'_flat.cr.fits')
+    try:
+        os.remove(clus_id+'/flats/'+clus_id+'_flat.cr.fits')
+    except: pass
     flatfits_c = copy.copy(hdulists_flat[0]) #copy I will use to hold the smoothed and added results
     flat_data = np.zeros((hdulists_flat.size,naxis1,naxis2))
     i = 0
@@ -449,7 +455,9 @@ else: flatfits_c = pyfits.open(clus_id+'/flats/'+clus_id+'_flat.cr.fits')[0]
 
 print 'ARC REDUCTION'
 if redo == 'n':
-    #os.remove(clus_id+'/arcs/'+clus_id+'_arc.cr.fits')
+    try:
+        os.remove(clus_id+'/arcs/'+clus_id+'_arc.cr.fits')
+    except: pass
     arcfits_c = copy.copy(hdulists_arc[0]) #copy I will use to hold the smoothed and added results
     arcfits_c.data *= 0.0
     for arcfits in hdulists_arc:
