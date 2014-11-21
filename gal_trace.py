@@ -45,22 +45,25 @@ def gal_trace(cutout):
     means = np.array(means)
     meansx = np.array(meansx)
     
-    #fit quadratic equation to estimated galaxy position
-    popt,pcov = curve_fit(_quadfit,meansx[np.isfinite(means)],means[np.isfinite(means)],p0=[-1e-6,1e-6,20])
+    if means[np.isfinite(means)].size >= 10: #otherwise don't trust the fit and return the entire cutout summed
+        #fit quadratic equation to estimated galaxy position
+        popt,pcov = curve_fit(_quadfit,meansx[np.isfinite(means)],means[np.isfinite(means)],p0=[-1e-6,1e-6,20])
 
-    #plt.plot(meansx,means,'ko')
-    #plt.plot(meansx,_quadfit(np.array(meansx),*popt))
-    #plt.show()
+        #plt.plot(meansx,means,'ko')
+        #plt.plot(meansx,_quadfit(np.array(meansx),*popt))
+        #plt.show()
 
-    gal_pos = _quadfit(np.arange(0,cutout.shape[1],1),*popt)
+        gal_pos = _quadfit(np.arange(0,cutout.shape[1],1),*popt)
 
-    gal_posr = np.round(np.array(gal_pos))
+        gal_posr = np.round(np.array(gal_pos))
 
-    gal_sum = []
-    for i in range(cutout.shape[1]):
-        gal_sum.append(np.sum(cutout[gal_posr[i]-5:gal_posr[i]+5,i]))
+        gal_sum = []
+        for i in range(cutout.shape[1]):
+            gal_sum.append(np.sum(cutout[gal_posr[i]-5:gal_posr[i]+5,i]))
 
-    gal_sum = np.array(gal_sum)
+        gal_sum = np.array(gal_sum)
+    else:
+        gal_sum = np.sum(cutout,axis=0)
     return gal_sum
 
 
