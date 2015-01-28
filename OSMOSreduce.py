@@ -4,7 +4,7 @@ In the .oms file, the first and last RA/DEC represent a reference slit at the bo
 
 Please list the calibration lamp(s) used during your observations here
 '''
-cal_lamp = ['Neon'] #'Xenon','Argon','HgNe','Neon'
+cal_lamp = ['Xenon'] #'Xenon','Argon','HgNe','Neon'
 print 'Using calibration lamps: ', cal_lamp
 '''
 
