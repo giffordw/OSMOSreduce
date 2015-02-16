@@ -31,7 +31,7 @@ from scipy import fftpack
 from get_photoz import *
 from redshift_estimate import *
 from sncalc import *
-from redshift_checker import *
+#from redshift_checker import *
 from gal_trace import *
 
 def getch():
@@ -756,7 +756,7 @@ SNHKmin = np.zeros(len(Gal_dat))
 sdss_elem = np.where(Gal_dat.spec_z > 0.0)[0]
 sdss_red = Gal_dat[Gal_dat.spec_z > 0.0].spec_z
 qualityval = {'Clear':np.zeros(len(Gal_dat))}
-
+'''
 est_pre_z = raw_input('Your sample contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS '\
     'galaxies with spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? '\
     'Would you like to specify your own prior for each galaxy (q)? Press (p) to use the sdss photo_z as a prior. '\
@@ -783,7 +783,8 @@ while not est_enter:
                                 'spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? '\
                                 'Would you like to specify your own prior for each galaxy (q)? Press (p) to use the sdss '\
                                 'photo_z as a prior. Press (z) to not use any prior: ')
-
+'''
+R = z_est()
 
 for k in range(len(Gal_dat)):
     F1 = fftpack.rfft(Flux_science[k])
@@ -808,6 +809,8 @@ for k in range(len(Gal_dat)):
         if not skipgal:
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[k])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 40) #color=green highlite=1}')
+            redshift_est[k],cor[k],ztest,corr_val = R.redshift_estimate(early_type_wave,early_type_flux,wave[k],Flux_science2,gal_prior=None)
+            '''
             #assign prior to redshift depending on photo_z or user defined.
             if est_pre_z == 's':
                 pre_z_est = np.median(Gal_dat.spec_z[Gal_dat.spec_z > 0.0])
@@ -912,6 +915,7 @@ for k in range(len(Gal_dat)):
             except AttributeError:
                 print 'Good redshift guess'
                 pass
+            '''
             HSN[k],KSN[k],GSN[k] = sncalc(redshift_est[k],wave[k],Flux_sc)
             SNavg[k] = np.average(np.array([HSN[k],KSN[k],GSN[k]]))
             SNHKmin[k] = np.min(np.array([HSN[k],KSN[k]]))
