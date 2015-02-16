@@ -6,9 +6,6 @@ Please list the calibration lamp(s) used during your observations here
 '''
 cal_lamp = ['Xenon'] #'Xenon','Argon','HgNe','Neon'
 print 'Using calibration lamps: ', cal_lamp
-'''
-
-'''
 
 import numpy as np
 from astropy.io import fits as pyfits
@@ -739,29 +736,17 @@ Gal_dat['shift'],Gal_dat['stretch'],Gal_dat['quad'],Gal_dat['cube'],Gal_dat['fou
 ####################
 #Redshift Calibrate#
 ####################
+
+#Import template spectrum (SDSS early type) and continuum subtract the flux
 early_type = pyfits.open('spDR2-023.fit')
-#normal_type = pyfits.open('spDR2-024.fit')
-#normal2_type = pyfits.open('spDR2-025.fit')
 coeff0 = early_type[0].header['COEFF0']
 coeff1 = early_type[0].header['COEFF1']
-#coeff0_2 = normal_type[0].header['COEFF0']
-#coeff1_2 = normal_type[0].header['COEFF1']
-#coeff0_3 = normal2_type[0].header['COEFF0']
-#coeff1_3 = normal2_type[0].header['COEFF1']
 early_type_flux = early_type[0].data[0] - signal.medfilt(early_type[0].data[0],171)
-#early_type_flux = signal.medfilt(early_type[0].data[0],171)
-#normal_type_flux = normal_type[0].data[0]
-#normal2_type_flux = normal2_type[0].data[0]
 early_type_wave = 10**(coeff0 + coeff1*np.arange(0,early_type_flux.size,1))
-#normal_type_wave = 10**(coeff0 + coeff1*np.arange(0,normal_type_flux.size,1))
-#normal2_type_wave = 10**(coeff0 + coeff1*np.arange(0,normal2_type_flux.size,1))
 
+#initialize data arrays
 redshift_est = np.zeros(len(Gal_dat))
-redshift_est2 = np.zeros(len(Gal_dat))
-redshift_est3 = np.zeros(len(Gal_dat))
 cor = np.zeros(len(Gal_dat))
-cor2 = np.zeros(len(Gal_dat))
-cor3 = np.zeros(len(Gal_dat))
 HSN = np.zeros(len(Gal_dat))
 KSN = np.zeros(len(Gal_dat))
 GSN = np.zeros(len(Gal_dat))
@@ -772,7 +757,10 @@ sdss_elem = np.where(Gal_dat.spec_z > 0.0)[0]
 sdss_red = Gal_dat[Gal_dat.spec_z > 0.0].spec_z
 qualityval = {'Clear':np.zeros(len(Gal_dat))}
 
-est_pre_z = raw_input('Your sample contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS galaxies with spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? Would you like to specify your own prior for each galaxy (q)? Press (p) to use the sdss photo_z as a prior. Press (z) to not use any prior: ')
+est_pre_z = raw_input('Your sample contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS '\
+    'galaxies with spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? '\
+    'Would you like to specify your own prior for each galaxy (q)? Press (p) to use the sdss photo_z as a prior. '\
+    'Press (z) to not use any prior: ')
 
 #Choose redshift prior information
 est_enter = False
@@ -790,7 +778,11 @@ while not est_enter:
         z_prior_width = 0.06
         est_enter = True
     else:
-        est_pre_z = raw_input('Incorrect entry: Please enter either (s), (q), (p), or (z). Your sample contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS galaxies with spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? Would you like to specify your own prior for each galaxy (q)? Press (p) to use the sdss photo_z as a prior. Press (z) to not use any prior: ')
+        est_pre_z = raw_input('Incorrect entry: Please enter either (s), (q), (p), or (z). Your sample '\
+                                'contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS galaxies with '\
+                                'spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? '\
+                                'Would you like to specify your own prior for each galaxy (q)? Press (p) to use the sdss '\
+                                'photo_z as a prior. Press (z) to not use any prior: ')
 
 
 for k in range(len(Gal_dat)):
