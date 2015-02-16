@@ -53,37 +53,6 @@ def filter_image(img):
     img_cr[bad] = img_sm[bad]
     return img_cr
 
-class EstimateHK:
-    def __init__(self,pspec,ax5):
-        print 'If redshift calibration appears correct, hit "Accept and Close". Otherwise, "right click" approx. where the H and K lines are in the plotted spectrum. The program will re-correlate based on this guess.'
-        self.ax5 = ax5
-        self.cid3 = pspec.figure.canvas.mpl_connect('button_press_event',self.onclick)
-
-    def on_key_press(self,event):
-        if event.key == 'shift':
-            self.shift_is_held = True
-
-    def on_key_release(self, event):
-        if event.key == 'shift':
-            self.shift_is_held = False
-
-    def onclick(self,event):
-        if event.inaxes == self.ax5:
-            if event.button == 3:
-                print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
-                self.lam = event.xdata
-                plt.close()
-            '''
-            if event.button == 1:
-                #if self.shift_is_held:
-                #    print 'xdata=%f, ydata%f'%(event.xdata, event.ydata)
-                #    self.lam = event.xdata
-                #    plt.close()
-                #else:
-                plt.close()
-            '''
-        else: return
-
 pixscale = 0.273 #pixel scale at for OSMOS
 xbin = 1
 ybin = 1
