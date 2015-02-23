@@ -3,6 +3,7 @@ import pdb
 from scipy.interpolate import interp1d
 from scipy.stats import pearsonr
 from scipy.stats import norm
+import scipy.signal as signal
 from matplotlib import gridspec
 import matplotlib.pyplot as plt
 from matplotlib.widgets import RadioButtons, Button, CheckButtons
@@ -10,8 +11,11 @@ import sys
 from types import *
 
 class Estimateline:
-    def __init__(self,pspec,ax5):
-        print 'If redshift calibration appears correct, hit "Accept and Close". Otherwise, "right click" approx. where the H and K lines are in the plotted spectrum. The program will re-correlate based on this guess.'
+    '''Class to manually estimate where lines are located'''
+    def __init__(self,pspec,ax5,uline):
+        print 'If redshift calibration appears correct, hit "Accept and Close". '\
+        'Otherwise, "right click" approx. where the '+uline+' line is in the plotted spectrum. '\
+        'The program will re-correlate based on this guess.'
         self.ax5 = ax5
         self.cid3 = pspec.figure.canvas.mpl_connect('button_press_event',self.onclick)
 
@@ -68,13 +72,22 @@ class z_est:
         self.corr_val_i = np.zeros(self.ztest.size)
 
         #set redshift prior flag
-        self.est_pre_z = raw_input('(1) Use a single redshift prior for all galaxies [Example: median of known redshifts.] \n'\
-                            '(2) Use an individual redshift prior for each galaxy [Example: photometric redshifts.] \n'\
-                            '(3) View spectrum and specify a redshift prior \n'\
-                            '(4) No prior\n')
+        self.est_pre_z = raw_input('(1) Use a known prior [Examples: median of known redshifts. Galaxy photoz measurements] \n'\
+                            '(2) View spectrum and specify a redshift prior \n'\
+                            '(3) No prior\n')
 
         #catch and correct false entry
         _est_enter = False
+        self.uline_n = raw_input('What is the name of a spectral line you wish to use to identify redshift priors? '\
+                                            '[Default: HK]: ')
+        if not self.uline_n:
+            self.uline_n = 'HK'
+        self.uline = raw_input('Please list the approx. rest wavelength (in angstroms) of that line you seek to identify in your spectra '\
+                                            '[Default: HK lines are at about 3950]: ')
+        if self.uline:
+            self.uline = np.float(self.uline)
+        else:
+            self.uline = 3950.0
         while not _est_enter:
             if self.est_pre_z == '1':
                 self.z_prior_width = 0.06
@@ -86,30 +99,19 @@ class z_est:
                 _est_enter = True
             elif self.est_pre_z == '3':
                 self.z_prior_width = 0.06
-                self.uline_n = raw_input('What is the name of a spectral line you wish to use to identify redshift priors? '\
-                                            '[Example: HK]: ')
-                self.uline = raw_input('Please list the approx. rest wavelength (in angstroms) of that line you seek to identify in your spectra '\
-                                            '[Example: HK lines are at about 3950]: ')
-                print 'redshift prior width has been set to',self.z_prior_width
-                _est_enter = True
-            elif self.est_pre_z == '4':
-                self.z_prior_width = 0.06
                 _est_enter = True
             else:
-                self.est_pre_z = raw_input('Incorrect entry: Please enter either (1), (2), (3), or (4).')
+                self.est_pre_z = raw_input('Incorrect entry: Please enter either (1), (2), or (3).')
 
         #remind user to set the correct values in next step
         if self.est_pre_z == '1':
-            print 'Make sure to set the spec_prior argument to the value you chose: '\
-                '[Example: z_est.redshift_estimate(spec_prior=0.1)]'
-        elif self.est_pre_z == '2':
-            print 'Make sure to set the photoz_prior argument to the value for each galaxy: '\
-                '[Example: z_est.redshift_estimate(photoz_prior=0.1)]'
+            print 'Make sure to set the gal_prior argument to the value of the known redshift prior: '\
+                '[Example: z_est.redshift_estimate(gal_prior=0.1)]'
 
         #postconditions
         assert self.est_pre_z, "Must define redshift prior flag"
-        assert self.est_pre_z == '1' or self.est_pre_z == '2' or self.est_pre_z == '3' \
-                    or self.est_pre_z == '4', "Incorrect string value for prior"
+        assert self.est_pre_z == '1' or self.est_pre_z == '2' or self.est_pre_z == '3', \
+                         "Incorrect string value for prior"
 
 
     def redshift_estimate(self,early_type_wave,early_type_flux,wave,Flux_science,gal_prior=None):
@@ -117,15 +119,14 @@ class z_est:
         estimate redshift for object
         '''
         #manage redshift prior
-        self.spec_prior = spec_prior
-        self.photoz_prior = photoz_prior
+        self.gal_prior = gal_prior
 
         #continuum subtract
         Flux_sc = Flux_science - signal.medfilt(Flux_science,171)
         early_type_flux_sc = early_type_flux - signal.medfilt(early_type_flux,171)
 
         #handle single redshift prior flag
-        if self.est_pre_z == '1' or self.est_pre_z == '2':
+        if self.est_pre_z == '1':
             if self.gal_prior:
                 self.pre_z_est = self.gal_prior
             else:
@@ -136,11 +137,11 @@ class z_est:
                 elif not nospec:
                     sys.exit()
                 else:
-                    self.spec_prior = np.float(nospec)
-                    self.pre_z_est = self.spec_prior
+                    self.gal_prior = np.float(nospec)
+                    self.pre_z_est = self.gal_prior
 
         #handle user prior flag
-        if self.est_pre_z == '3':
+        if self.est_pre_z == '2':
             print 'Take a look at the plotted galaxy spectrum and note, approximately, at what wavelength do you see the '+self.uline_n+' line. '\
                     'Then close the plot and enter that wavelength in angstroms.'
             plt.plot(wave[k],Flux_sc)
@@ -150,31 +151,30 @@ class z_est:
             self.pre_z_est = np.float(line_init)/self.uline - 1
 
         #handle no prior flag
-        if est_pre_z == 'z':
+        if self.est_pre_z == '3':
             self.pre_z_est = None
 
-        redshift_est,cor,ztest,corr_val = self.cross_cor(self.pre_z_est,z_prior_width,early_type_wave,early_type_flux_sc,wave[k],Flux_sc)
+        redshift_est,cor,ztest,corr_val = self._cross_cor(self.pre_z_est,self.z_prior_width,early_type_wave,early_type_flux_sc,wave,Flux_sc)
 
-        ax = self.GUI_display(redshift_est,ztest,corr_val,wave,Flux_sc)
-        self.line_est = Estimateline(self.pspec,ax)
-        plt.show()
+        self.qualityval = 0
+        self.first_pass = True
+        self._GUI_display(redshift_est,ztest,corr_val,wave,Flux_science)
+        #self.line_est = Estimateline(self.pspec,ax)
+        #plt.show()
         try:
             self.pre_lam_est = self.line_est.lam
-            self.pre_z_est = pre_lam_est
-            redshift_est,cor,ztest,corr_val = self.cross_cor(self.pre_z_est,z_prior_width,early_type_wave,early_type_flux_sc,wave[k],Flux_sc)
-            ax = self.GUI_display(redshift_est,ztest,corr_val,wave,Flux_sc)
-            spectra2 = DragSpectra(self.pspec,Flux_science,ax)
-            self.fig.canvas.mpl_connect('motion_notify_event',spectra2.on_motion)
-            self.fig.canvas.mpl_connect('button_press_event',spectra2.on_press)
-            self.fig.canvas.mpl_connect('button_release_event',spectra2.on_release)
-            plt.show()
-            total_new_shift = spectra2.dx_tot
+            self.pre_z_est = self.pre_lam_est/3950.0 - 1.0
+            self.first_pass = False
+            redshift_est,cor,ztest,corr_val = self._cross_cor(self.pre_z_est,self.z_prior_width,early_type_wave,early_type_flux_sc,wave,Flux_sc)
+            print 'redshift est:',redshift_est
+            self._GUI_display(redshift_est,ztest,corr_val,wave,Flux_science)
+            total_new_shift = self.spectra2.dx_tot
             redshift_est = (self.uline*(1+redshift_est) - total_new_shift)/self.uline - 1
         except AttributeError:
             pass
-        return redshift_est,cor,ztest,corr_val
+        return redshift_est,cor,ztest,corr_val,self.qualityval
 
-    def cross_cor(self,z_est,unc,early_type_wave,early_type_flux,wave,Flux_sc):
+    def _cross_cor(self,z_est,unc,early_type_wave,early_type_flux,wave,Flux_sc):
         '''
         This function cross-correlates a continuum subtracted template spectrum with a continuum subtracted observed spectrum.
         It then returns an estimate of the redshift, the correlation value at that redshift, the array of redshifts tested,
@@ -187,7 +187,7 @@ class z_est:
             #redshift the template wavelengths
             wshift = early_type_wave*(1+z)
             #identify the wavelength diff between the lower wave limit and the redshifted template spectrum
-            wavediff = np.min(wshift - low)
+            wavediff = np.min(wshift - self.lower_w)
 
             #if the limit is above the minimum wavelength of the redshifted template spectrum...
             if wavediff < 0:
@@ -220,9 +220,10 @@ class z_est:
         #save correlation value at maximum redshift likelihood
         cor = (self.corr_val_i[np.where((self.ztest>0.02)&(self.ztest<0.35))])[np.where(corr_val[np.where((self.ztest>0.02)&(self.ztest<0.35))] == np.max(corr_val[np.where((self.ztest>0.02)&(self.ztest<0.35))]))]
         
-        return redshift_est, cor, self.ztest,corr_val
+        return redshift_est[0], cor, self.ztest,corr_val
 
-    def GUI_display(self,redshift_est,ztest,corr_val,wave,flux_sc):
+    def _GUI_display(self,redshift_est,ztest,corr_val,wave,flux_sc):
+        '''Display the spectrum and reference lines.'''
         self.fig = plt.figure(figsize=(10, 8)) 
         gs = gridspec.GridSpec(2, 1, height_ratios=[2, 1])
         ax2 = plt.subplot(gs[0])
@@ -244,27 +245,39 @@ class z_est:
         ax2.axvline(4959.0*(1+redshift_est),ls='--',alpha=0.7,c='blue')
         ax2.axvline(5007.0*(1+redshift_est),ls='--',alpha=0.7,c='blue')
         ax2.axvline(5175.0*(1+redshift_est),ls='--',alpha=0.7,c='orange')
+        if self.first_pass:
+            self.line_est = Estimateline(self.pspec,ax2,self.uline_n)
         rax = plt.axes([0.85, 0.5, 0.1, 0.2])
-        radio = RadioButtons(rax, ('Unclear', 'Clear'))
+        if self.qualityval == 0:
+            radio = RadioButtons(rax, ('Unclear', 'Clear'))
+        else:
+            radio = RadioButtons(rax, ('Unclear', 'Clear'),active=1)
         def qualfunc(label):
             if label == 'Clear':
-                qualityval['Clear'][k] = 1
+                self.qualityval = 1
             else:
-                qualityval['Clear'][k] = 0
+                self.qualityval = 0
         radio.on_clicked(qualfunc)
         closeax = plt.axes([0.83, 0.3, 0.15, 0.1])
         button = Button(closeax, 'Accept & Close', hovercolor='0.975')
         def closeplot(event):
             plt.close()
         button.on_clicked(closeplot)
-        ax2.set_xlim(self.lower_w,self.uppoer_w)
+        ax2.set_xlim(self.lower_w,self.upper_w)
         ax2.set_xlabel('Wavelength (A)')
         ax2.set_ylabel('Counts')
-        return ax2
+        if not self.first_pass:
+            self.spectra2 = DragSpectra(self.pspec,flux_sc,ax2,self.fig)
+            self.fig.canvas.mpl_connect('motion_notify_event',self.spectra2.on_motion)
+            self.fig.canvas.mpl_connect('button_press_event',self.spectra2.on_press)
+            self.fig.canvas.mpl_connect('button_release_event',self.spectra2.on_release)
+        plt.show()
 
 class DragSpectra:
-    def __init__(self,spectra,ydata,ax5):
+    '''Class to drage the spectra back and forth to match lines of interest'''
+    def __init__(self,spectra,ydata,ax5,fig):
         self.ax5 = ax5
+        self.fig = fig
         print 'begin shift'
         self.spectra = spectra
         self.ydata = ydata
@@ -277,7 +290,6 @@ class DragSpectra:
     def on_motion(self,evt):
         if self.pressed:
             dx = evt.xdata - self.mouse_x
-            #self.dx_tot += dx
             self.spectra.set_data(self.spectra_x + dx,self.ydata)
             plt.draw()
 
@@ -286,16 +298,15 @@ class DragSpectra:
             self.mouse_x = evt.xdata
             self.spectra_x = self.spectra.get_xdata()
             self.pressed = True
-            #print 'mouse press'
         else: return
 
     def on_release(self,evt):
         if evt.inaxes == self.ax5:
             self.pressed = False
-            #print evt.xdata - self.mouse_x
-            self.dx_tot += evt.xdata - self.mouse_x
-            print self.dx_tot
-            #print 'release event'
+            try:
+                self.dx_tot += evt.xdata - self.mouse_x
+            except AttributeError:
+                self.dx_tot = 0.0
         else: return
 
 if __name__ == '__main__':

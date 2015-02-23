@@ -376,7 +376,7 @@ Gal_dat['FINAL_SLIT_X_FLIP'] = 4064 - Gal_dat.FINAL_SLIT_X
 #######################################
 redo = 'n'
 if os.path.isfile(clus_id+'/science/'+clus_id+'_science.cr.fits'):
-    redo = raw_input('Detected cosmic ray filtered file exists. Do you wish to use this (y) or remove and re-calculate (n)?')
+    redo = raw_input('Detected cosmic ray filtered file exists. Do you wish to use this (y) or remove and re-calculate (n)? ')
 if redo == 'n':
     try:
         os.remove(clus_id+'/science/'+clus_id+'_science.cr.fits')
@@ -725,34 +725,10 @@ SNHKmin = np.zeros(len(Gal_dat))
 sdss_elem = np.where(Gal_dat.spec_z > 0.0)[0]
 sdss_red = Gal_dat[Gal_dat.spec_z > 0.0].spec_z
 qualityval = {'Clear':np.zeros(len(Gal_dat))}
-'''
-est_pre_z = raw_input('Your sample contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS '\
-    'galaxies with spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? '\
-    'Would you like to specify your own prior for each galaxy (q)? Press (p) to use the sdss photo_z as a prior. '\
-    'Press (z) to not use any prior: ')
 
-#Choose redshift prior information
-est_enter = False
-while not est_enter:
-    if est_pre_z == 's':
-        z_prior_width = 0.06
-        est_enter = True
-    elif est_pre_z == 'p':
-        z_prior_width = 0.06
-        est_enter = True
-    elif est_pre_z == 'q':
-        z_prior_width = 0.06
-        est_enter = True
-    elif est_pre_z == 'z':
-        z_prior_width = 0.06
-        est_enter = True
-    else:
-        est_pre_z = raw_input('Incorrect entry: Please enter either (s), (q), (p), or (z). Your sample '\
-                                'contains '+str(Gal_dat.spec_z[Gal_dat.spec_z > 0.0].size)+' SDSS galaxies with '\
-                                'spectra. Would you like to use a redshift prior that is the median of these galaxies (s)? '\
-                                'Would you like to specify your own prior for each galaxy (q)? Press (p) to use the sdss '\
-                                'photo_z as a prior. Press (z) to not use any prior: ')
-'''
+median_sdss_redshift = np.median(Gal_dat.spec_z[Gal_dat.spec_z > 0.0])
+print 'Median SDSS redshift',median_sdss_redshift
+
 R = z_est()
 
 for k in range(len(Gal_dat)):
@@ -778,7 +754,7 @@ for k in range(len(Gal_dat)):
         if not skipgal:
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[k])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 40) #color=green highlite=1}')
-            redshift_est[k],cor[k],ztest,corr_val = R.redshift_estimate(early_type_wave,early_type_flux,wave[k],Flux_science2,gal_prior=None)
+            redshift_est[k],cor[k],ztest,corr_val,qualityval['Clear'][k] = R.redshift_estimate(early_type_wave,early_type_flux,wave[k],Flux_science2,gal_prior=)
             '''
             #assign prior to redshift depending on photo_z or user defined.
             if est_pre_z == 's':
