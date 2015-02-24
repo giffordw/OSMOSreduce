@@ -215,10 +215,10 @@ class z_est:
             corr_val = corr_val * rv.pdf(self.ztest)
         
         #make redshift estimate
-        redshift_est = (self.ztest[np.where((self.ztest>0.02)&(self.ztest<0.35))])[np.where(corr_val[np.where((self.ztest>0.02)&(self.ztest<0.35))] == np.max(corr_val[np.where((self.ztest>0.02)&(self.ztest<0.35))]))]
+        redshift_est = (self.ztest[np.where((self.ztest>self.lower_z)&(self.ztest<self.upper_z))])[np.where(corr_val[np.where((self.ztest>self.lower_z)&(self.ztest<self.upper_z))] == np.max(corr_val[np.where((self.ztest>self.lower_z)&(self.ztest<self.upper_z))]))]
         
         #save correlation value at maximum redshift likelihood
-        cor = (self.corr_val_i[np.where((self.ztest>0.02)&(self.ztest<0.35))])[np.where(corr_val[np.where((self.ztest>0.02)&(self.ztest<0.35))] == np.max(corr_val[np.where((self.ztest>0.02)&(self.ztest<0.35))]))]
+        cor = (self.corr_val_i[np.where((self.ztest>self.lower_z)&(self.ztest<self.upper_z))])[np.where(corr_val[np.where((self.ztest>self.lower_z)&(self.ztest<self.upper_z))] == np.max(corr_val[np.where((self.ztest>self.lower_z)&(self.ztest<self.upper_z))]))]
         
         return redshift_est[0], cor, self.ztest,corr_val
 

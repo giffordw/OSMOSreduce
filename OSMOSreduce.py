@@ -754,7 +754,7 @@ for k in range(len(Gal_dat)):
         if not skipgal:
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[k])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 40) #color=green highlite=1}')
-            redshift_est[k],cor[k],ztest,corr_val,qualityval['Clear'][k] = R.redshift_estimate(early_type_wave,early_type_flux,wave[k],Flux_science2,gal_prior=)
+            redshift_est[k],cor[k],ztest,corr_val,qualityval['Clear'][k] = R.redshift_estimate(early_type_wave,early_type_flux,wave[k],Flux_science2,gal_prior=None)
             '''
             #assign prior to redshift depending on photo_z or user defined.
             if est_pre_z == 's':
