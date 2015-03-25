@@ -144,7 +144,7 @@ class z_est:
         if self.est_pre_z == '2':
             print 'Take a look at the plotted galaxy spectrum and note, approximately, at what wavelength do you see the '+self.uline_n+' line. '\
                     'Then close the plot and enter that wavelength in angstroms.'
-            plt.plot(wave[k],Flux_sc)
+            plt.plot(wave,Flux_science)
             plt.xlim(self.lower_w,self.upper_w)
             plt.show()
             line_init = raw_input(self.uline_n+' approx. wavelength (A): ')
