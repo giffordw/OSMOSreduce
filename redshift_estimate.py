@@ -210,9 +210,11 @@ class z_est:
         self.ztest = self.ztest[np.isfinite(self.corr_val_i)]
         
         #multiply in prior to likelihood if specified
+        self.corr_prior = np.zeros(self.ztest.size)
         if z_est:
             rv = norm(z_est,unc)
             corr_val = corr_val * rv.pdf(self.ztest)
+            self.corr_prior = rv.pdf(self.ztest)
         
         #make redshift estimate
         redshift_est = (self.ztest[np.where((self.ztest>self.lower_z)&(self.ztest<self.upper_z))])[np.where(corr_val[np.where((self.ztest>self.lower_z)&(self.ztest<self.upper_z))] == np.max(corr_val[np.where((self.ztest>self.lower_z)&(self.ztest<self.upper_z))]))]
@@ -232,6 +234,7 @@ class z_est:
 
         ax.plot(ztest,corr_val,'b')
         ax.axvline(redshift_est,color='k',ls='--')
+        ax.fill_between(self.ztest,np.zeros(self.ztest.size),self.corr_prior,facecolor='grey',alpha=0.6)
         ax.set_xlabel('Redshift')
         ax.set_ylabel('Correlation')
 
@@ -278,6 +281,7 @@ class DragSpectra:
     def __init__(self,spectra,ydata,ax5,fig):
         self.ax5 = ax5
         self.fig = fig
+        self.tb = plt.get_current_fig_manager().toolbar
         print 'begin shift'
         self.spectra = spectra
         self.ydata = ydata
@@ -294,14 +298,14 @@ class DragSpectra:
             plt.draw()
 
     def on_press(self,evt):
-        if evt.inaxes == self.ax5:
+        if evt.inaxes == self.ax5 and self.tb.mode == '':
             self.mouse_x = evt.xdata
             self.spectra_x = self.spectra.get_xdata()
             self.pressed = True
         else: return
 
     def on_release(self,evt):
-        if evt.inaxes == self.ax5:
+        if evt.inaxes == self.ax5 and self.tb.mode == '':
             self.pressed = False
             try:
                 self.dx_tot += evt.xdata - self.mouse_x
