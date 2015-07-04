@@ -754,113 +754,14 @@ for k in range(len(Gal_dat)):
         if not skipgal:
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[k])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 40) #color=green highlite=1}')
+            '''
+            ff = open(clus_id+'/1dspectra/gal_'+str(k)+'_spec.csv','w')
+            for jj in range(wave[k].size):
+                ff.write(str(wave[k][jj])+',')
+                ff.write(str(Flux_science2[jj])+'\n')
+            ff.close()
+            '''
             redshift_est[k],cor[k],ztest,corr_val,qualityval['Clear'][k] = R.redshift_estimate(early_type_wave,early_type_flux,wave[k],Flux_science2,gal_prior=None)
-            '''
-            #assign prior to redshift depending on photo_z or user defined.
-            if est_pre_z == 's':
-                pre_z_est = np.median(Gal_dat.spec_z[Gal_dat.spec_z > 0.0])
-            if est_pre_z == 'p':
-                pre_z_est = Gal_dat.photo_z[k]
-            if est_pre_z == 'z':
-                pre_z_est = None
-            elif est_pre_z == 'q':
-                print 'Take a look at the plotted galaxy spectrum and note, approximately, at what wavelength do the H and K lines exist? Then close the plot and enter that wavelength in angstroms.'
-                plt.plot(wave[k],Flux_science2)
-                plt.xlim(4000.0,7000.0)
-                plt.show()
-                HKinit = raw_input('HK approx. wavelength (A): ')
-                pre_z_est = np.float(HKinit)/3950.0 - 1
-
-            redshift_est[k],cor[k],ztest,corr_val = redshift_estimate(pre_z_est,z_prior_width,early_type_wave,early_type_flux,wave[k],Flux_sc)
-            fig = plt.figure(figsize=(10, 8)) 
-            gs = gridspec.GridSpec(2, 1, height_ratios=[2, 1])
-            ax2 = plt.subplot(gs[0])
-            ax = plt.subplot(gs[1])
-            plt.subplots_adjust(right=0.8)
-
-            ax.plot(ztest,corr_val,'b')
-            ax.axvline(redshift_est[k],color='k',ls='--')
-            ax.set_xlabel('Redshift')
-            ax.set_ylabel('Correlation')
-
-            pspec, = ax2.plot(wave[k],Flux_science2)
-            ax2.axvline(3725.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='blue')
-            ax2.axvline(3968.5*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
-            ax2.axvline(3933.7*(1+redshift_est[k]),ls='--',alpha=0.7,c='red')
-            ax2.axvline(4102.9*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
-            ax2.axvline(4304.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
-            ax2.axvline(4862.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
-            ax2.axvline(4959.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='blue')
-            ax2.axvline(5007.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='blue')
-            ax2.axvline(5175.0*(1+redshift_est[k]),ls='--',alpha=0.7,c='orange')
-            HK_est = EstimateHK(pspec,ax2)
-            rax = plt.axes([0.85, 0.5, 0.1, 0.2])
-            radio = RadioButtons(rax, ('Unclear', 'Clear'))
-            def qualfunc(label):
-                if label == 'Clear':
-                    qualityval['Clear'][k] = 1
-                else:
-                    qualityval['Clear'][k] = 0
-            radio.on_clicked(qualfunc)
-            closeax = plt.axes([0.83, 0.3, 0.15, 0.1])
-            button = Button(closeax, 'Accept & Close', hovercolor='0.975')
-            def closeplot(event):
-                plt.close()
-            button.on_clicked(closeplot)
-            ax2.set_xlim(3800,5100)
-            ax2.set_xlabel('Wavelength (A)')
-            ax2.set_ylabel('Counts')
-            plt.show()
-            try:
-                pre_lam_est = HK_est.lam
-                pre_z_est = pre_lam_est/3950.0 - 1.0
-                redshift_est[k],cor[k],ztest,corr_val = redshift_estimate(pre_z_est,z_prior_width,early_type_wave,early_type_flux,wave[k],Flux_sc)
-                print 'Using prior given by user'
-                fig2 = plt.figure(figsize=(10, 8)) 
-                gs2 = gridspec.GridSpec(2, 1, height_ratios=[2, 1])
-                ax3 = plt.subplot(gs2[0])
-                ax4 = plt.subplot(gs2[1])
-                plt.subplots_adjust(right=0.8)
-
-                ax4.plot(ztest,corr_val,'b')
-                ax4.axvline(redshift_est[k],color='k',ls='--')
-                ax4.set_xlabel('Redshift')
-                ax4.set_ylabel('Correlation')
-
-                spectra, = ax3.plot(wave[k]/(1+redshift_est[k]),Flux_science2)
-                ax3.axvline(3725.5,ls='--',alpha=0.7,c='blue')
-                ax3.axvline(3968.5,ls='--',alpha=0.7,c='red')
-                ax3.axvline(3933.7,ls='--',alpha=0.7,c='red')
-                ax3.axvline(4102.9,ls='--',alpha=0.7,c='orange')
-                ax3.axvline(4304.0,ls='--',alpha=0.7,c='orange')
-                ax3.axvline(4862.0,ls='--',alpha=0.7,c='orange')
-                ax3.axvline(4959.0,ls='--',alpha=0.7,c='blue')
-                ax3.axvline(5007.0,ls='--',alpha=0.7,c='blue')
-                ax3.axvline(5175.0,ls='--',alpha=0.7,c='orange')
-                rax = plt.axes([0.85, 0.5, 0.1, 0.2])
-                if qualityval['Clear'][k] == 0:
-                    radio = RadioButtons(rax, ('Unclear', 'Clear'))
-                else:
-                    radio = RadioButtons(rax, ('Unclear', 'Clear'),active=1)
-                radio.on_clicked(qualfunc)
-                closeax = plt.axes([0.83, 0.3, 0.15, 0.1])
-                button = Button(closeax, 'Accept & Close', hovercolor='0.975')
-                button.on_clicked(closeplot)
-                ax3.set_xlim(3500,4600)
-                print 'Dragging enabled'
-                ax3.set_xlabel('Wavelength (A)')
-                ax3.set_ylabel('Counts')
-                spectra2 = DragSpectra(spectra,Flux_science2,ax3)
-                fig2.canvas.mpl_connect('motion_notify_event',spectra2.on_motion)
-                fig2.canvas.mpl_connect('button_press_event',spectra2.on_press)
-                fig2.canvas.mpl_connect('button_release_event',spectra2.on_release)
-                plt.show()
-                total_new_shift = spectra2.dx_tot
-                redshift_est[k] = (3968.5*(1+redshift_est[k]) - total_new_shift)/3968.5 - 1
-            except AttributeError:
-                print 'Good redshift guess'
-                pass
-            '''
             HSN[k],KSN[k],GSN[k] = sncalc(redshift_est[k],wave[k],Flux_sc)
             SNavg[k] = np.average(np.array([HSN[k],KSN[k],GSN[k]]))
             SNHKmin[k] = np.min(np.array([HSN[k],KSN[k]]))
