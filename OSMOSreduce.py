@@ -10,10 +10,10 @@ print 'Using calibration lamps: ', cal_lamp
 import numpy as np
 from astropy.io import fits as pyfits
 import matplotlib
-matplotlib.use('Qt4Agg')
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from matplotlib.widgets import RadioButtons, Button, CheckButtons
+matplotlib.use('Qt4Agg')
 import scipy.signal as signal
 from ds9 import *
 import sys
@@ -29,7 +29,8 @@ import pickle
 import pdb
 from scipy import fftpack
 from get_photoz import *
-from redshift_estimate import *
+from zpy import *
+#from redshift_estimate import *
 from sncalc import *
 #from redshift_checker import *
 from gal_trace import *
@@ -371,6 +372,7 @@ Gal_dat['FINAL_SLIT_X'],Gal_dat['FINAL_SLIT_Y'],Gal_dat['SLIT_WIDTH'],Gal_dat['g
 #Need to flip FINAL_SLIT_X coords to account for reverse wavelength spectra
 Gal_dat['FINAL_SLIT_X_FLIP'] = 4064 - Gal_dat.FINAL_SLIT_X
 ####################################################################
+
 #######################################
 #Reduction steps to prep science image#
 #######################################
