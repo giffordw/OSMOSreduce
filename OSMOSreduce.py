@@ -110,19 +110,6 @@ try:
         raise Exception(sdss_check+' is not an accepted input. \'sdss\' is the only accepted input here.')
 except IndexError:
     sdss_check = False
-    '''
-    print "Do you want to reduce only SDSS galaxies with spectra? (y/n)"
-    while True: 
-        char = getch()
-        if char.lower() in ("y", "n"):
-            if char.lower() == "y":
-                print 'Reducing only galaxies with previous SDSS spectra'
-                sdss_check = True
-                break
-            else:
-                sdss_check = False
-                print 'Reducing all galaxies'
-    '''
 
 ############################
 #Import Cluster .fits files#
