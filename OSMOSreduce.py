@@ -755,7 +755,7 @@ for k in range(len(Gal_dat)):
         else: skipgal = False
         if not skipgal:
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[k])+' physical')
-            d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 40) #color=green highlite=1}')
+            d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 '+str(Gal_dat.SLIT_WIDTH[k])+') #color=green highlite=1}')
             '''
             ff = open(clus_id+'/1dspectra/gal_'+str(k)+'_spec.csv','w')
             for jj in range(wave[k].size):
