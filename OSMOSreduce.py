@@ -10,10 +10,10 @@ print 'Using calibration lamps: ', cal_lamp
 import numpy as np
 from astropy.io import fits as pyfits
 import matplotlib
+matplotlib.use('Qt4Agg')
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from matplotlib.widgets import RadioButtons, Button, CheckButtons
-matplotlib.use('Qt4Agg')
 import scipy.signal as signal
 from ds9 import *
 import sys
@@ -299,67 +299,6 @@ d.set('frame 2')
 d.set('zscale contrast 0.25')
 d.set('zoom 0.40')
 
-##################################################################
-#Loop through regions and shift regions for maximum effectiveness#
-##################################################################
-reassign = 'n'
-if os.path.isfile(clus_id+'/'+clus_id+'_slit_pos_qual.tab'):
-    reassign = raw_input('Detected slit position and quality file in path. Do you wish to use this (y) or remove and re-adjust (n)? ')
-if reassign == 'n':
-    good_spectra = np.array([])
-    FINAL_SLIT_X = np.zeros(len(Gal_dat))
-    FINAL_SLIT_Y = np.zeros(len(Gal_dat))
-    SLIT_WIDTH = np.zeros(len(Gal_dat))
-    print 'If needed, move region box to desired location. To increase the size, drag on corners'
-    for i in range(SLIT_WIDTH.size):
-        d.set('pan to 1150.0 '+str(Gal_dat.SLIT_Y[i])+' physical')
-        print 'Galaxy at ',Gal_dat.RA[i],Gal_dat.DEC[i]
-        d.set('regions command {box(2000 '+str(Gal_dat.SLIT_Y[i])+' 4500 40) #color=green highlite=1}')
-        #raw_input('Once done: hit ENTER')
-        if Gal_dat.slit_type[i] == 'g':
-            if sdss_check:
-                if Gal_dat.spec_z[i] != 0.0: skipgal = False
-                else: skipgal = True
-            else: skipgal = False
-            if not skipgal:
-                print 'Is this spectra good (y) or bad (n)?'
-                while True:
-                    char = getch()
-                    if char.lower() in ("y","n"):
-                        break
-                good_spectra = np.append(good_spectra,'y')#char.lower())
-                newpos_str = d.get('regions').split('\n')
-                for n_string in newpos_str:
-                    if n_string[:3] == 'box':
-                        newpos = re.search('box\(.*,(.*),.*,(.*),.*\)',n_string)
-                        FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
-                        FINAL_SLIT_Y[i] = newpos.group(1)
-                        SLIT_WIDTH[i] = newpos.group(2)
-                        break
-            else:
-                good_spectra = np.append(good_spectra,'n')
-                FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
-                FINAL_SLIT_Y[i] = Gal_dat.SLIT_Y[i]
-                SLIT_WIDTH[i] = 40
-        else:
-            good_spectra = np.append(good_spectra,'n')
-            FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
-            FINAL_SLIT_Y[i] = Gal_dat.SLIT_Y[i]
-            SLIT_WIDTH[i] = 40
-        print FINAL_SLIT_X[i],FINAL_SLIT_Y[i],SLIT_WIDTH[i]
-        d.set('regions delete all')
-    print FINAL_SLIT_X
-    np.savetxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',np.array(zip(FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH,good_spectra),dtype=[('float',float),('float2',float),('int',int),('str','|S1')]),delimiter='\t',fmt='%10.2f %10.2f %3d %s')
-else:
-    FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH = np.loadtxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',dtype='float',usecols=(0,1,2),unpack=True)
-    good_spectra = np.loadtxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',dtype='string',usecols=(3,),unpack=True)
-
-Gal_dat['FINAL_SLIT_X'],Gal_dat['FINAL_SLIT_Y'],Gal_dat['SLIT_WIDTH'],Gal_dat['good_spectra'] = FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH,good_spectra
-
-#Need to flip FINAL_SLIT_X coords to account for reverse wavelength spectra
-Gal_dat['FINAL_SLIT_X_FLIP'] = 4064 - Gal_dat.FINAL_SLIT_X
-####################################################################
-
 #######################################
 #Reduction steps to prep science image#
 #######################################
@@ -421,6 +360,74 @@ if redo == 'n':
     arcfits_c.writeto(clus_id+'/arcs/'+clus_id+'_arc.cr.fits')
 else: arcfits_c = pyfits.open(clus_id+'/arcs/'+clus_id+'_arc.cr.fits')[0]
 
+
+##################################################################
+#Loop through regions and shift regions for maximum effectiveness#
+##################################################################
+reassign = 'n'
+if os.path.isfile(clus_id+'/'+clus_id+'_slit_pos_qual.tab'):
+    reassign = raw_input('Detected slit position and quality file in path. Do you wish to use this (y) or remove and re-adjust (n)? ')
+if reassign == 'n':
+    good_spectra = np.array([])
+    FINAL_SLIT_X = np.zeros(len(Gal_dat))
+    FINAL_SLIT_Y = np.zeros(len(Gal_dat))
+    SLIT_WIDTH = np.zeros(len(Gal_dat))
+    print 'If needed, move region box to desired location. To increase the size, drag on corners'
+    for i in range(SLIT_WIDTH.size):
+        d.set('pan to 1150.0 '+str(Gal_dat.SLIT_Y[i])+' physical')
+        print 'Galaxy at ',Gal_dat.RA[i],Gal_dat.DEC[i]
+        d.set('regions command {box(2000 '+str(Gal_dat.SLIT_Y[i])+' 4500 40) #color=green highlite=1}')
+        #raw_input('Once done: hit ENTER')
+        if Gal_dat.slit_type[i] == 'g':
+            if sdss_check:
+                if Gal_dat.spec_z[i] != 0.0: skipgal = False
+                else: skipgal = True
+            else: skipgal = False
+            if not skipgal:
+                print 'Is this spectra good (y) or bad (n)?'
+                while True:
+                    char = getch()
+                    if char.lower() in ("y","n"):
+                        break
+                good_spectra = np.append(good_spectra,'y')#char.lower())
+                newpos_str = d.get('regions').split('\n')
+                for n_string in newpos_str:
+                    if n_string[:3] == 'box':
+                        newpos = re.search('box\(.*,(.*),.*,(.*),.*\)',n_string)
+                        FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
+                        FINAL_SLIT_Y[i] = newpos.group(1)
+                        SLIT_WIDTH[i] = newpos.group(2)
+
+                        ##
+                        #Sky subtract code here
+                        ##
+
+                        break
+            else:
+                good_spectra = np.append(good_spectra,'n')
+                FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
+                FINAL_SLIT_Y[i] = Gal_dat.SLIT_Y[i]
+                SLIT_WIDTH[i] = 40
+        else:
+            good_spectra = np.append(good_spectra,'n')
+            FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
+            FINAL_SLIT_Y[i] = Gal_dat.SLIT_Y[i]
+            SLIT_WIDTH[i] = 40
+        print FINAL_SLIT_X[i],FINAL_SLIT_Y[i],SLIT_WIDTH[i]
+        d.set('regions delete all')
+    print FINAL_SLIT_X
+    np.savetxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',np.array(zip(FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH,good_spectra),dtype=[('float',float),('float2',float),('int',int),('str','|S1')]),delimiter='\t',fmt='%10.2f %10.2f %3d %s')
+else:
+    FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH = np.loadtxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',dtype='float',usecols=(0,1,2),unpack=True)
+    good_spectra = np.loadtxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',dtype='string',usecols=(3,),unpack=True)
+
+Gal_dat['FINAL_SLIT_X'],Gal_dat['FINAL_SLIT_Y'],Gal_dat['SLIT_WIDTH'],Gal_dat['good_spectra'] = FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH,good_spectra
+
+#Need to flip FINAL_SLIT_X coords to account for reverse wavelength spectra
+Gal_dat['FINAL_SLIT_X_FLIP'] = 4064 - Gal_dat.FINAL_SLIT_X
+####################################################################
+
+
 ##############################
 #divide science image by flat#
 ##############################
@@ -444,6 +451,7 @@ if os.path.isfile(clus_id+'/science/'+clus_id+'_science.reduced.fits'):
     print 'WARNING: Overwriting pre-existing reduction file %s'%(clus_id+'/science/'+clus_id+'_science.reduced.fits')
     os.remove(clus_id+'/science/'+clus_id+'_science.reduced.fits')
 scifits_c2.writeto(clus_id+'/science/'+clus_id+'_science.reduced.fits')
+
 
 
 ########################
