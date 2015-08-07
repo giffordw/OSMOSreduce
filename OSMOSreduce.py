@@ -47,8 +47,8 @@ def getch():
     return ch
 
 def filter_image(img):
-    img_sm = signal.medfilt(img,9)
-    sigma = 2.0
+    img_sm = signal.medfilt(img,5)
+    sigma = 2.0 
     bad = np.abs(img-img_sm) / sigma > 8.0
     img_cr = img.copy()
     img_cr[bad] = img_sm[bad]

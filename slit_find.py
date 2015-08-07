@@ -8,11 +8,17 @@ import matplotlib.pyplot as plt
 from astropy.io import fits as pyfits
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
+import warnings
+
+warnings.filterwarnings("ignore")
 
 
 def _quadfit(x,a,b,c):
     '''define quadratic galaxy fitting function'''
     return a*(x-2032)**2 + b*(x-2032) + c
+
+def _gaus(x,a,x0,scat,c):
+    return a*np.exp(-(x-x0)**2/(2*scat**2)) + c
 
 def chip_background(pixels,flux):
     """
@@ -128,16 +134,57 @@ def slit_find(flux,science_flux):
     ##
     #cut out slit
     ##
-    d2_spectra = np.zeros((science_flux.shape[1],40))
+    d2_spectra_s = np.zeros((science_flux.shape[1],40))
     for i in range(science_flux.shape[1]):
         yvals = np.arange(0,science_flux.shape[0],1)
-        d2_spectra[i] = science_flux[:,i][np.where((yvals>=popt_avg[0]*(i-2032)**2 + popt_avg[1]*(i-2032) + popt_avg[2])&(yvals<=popt_avg[0]*(i-2032)**2 + popt_avg[1]*(i-2032) + popt_avg[2]+45))][:40]
-    plt.imshow(np.log(d2_spectra.T),aspect=35)
+        d2_spectra_s[i] = science_flux[:,i][np.where((yvals>=popt_avg[0]*(i-2032)**2 + popt_avg[1]*(i-2032) + popt_avg[2])&(yvals<=popt_avg[0]*(i-2032)**2 + popt_avg[1]*(i-2032) + popt_avg[2]+45))][:40]
+
+    ##
+    #Identify and cut out galaxy light
+    ##
+    popt_g,pcov_g = curve_fit(_gaus,np.arange(0,40,1),np.median(d2_spectra_s.T/np.max(d2_spectra_s),axis=1),p0=[1,20,5.0,0])
+    gal_pos = popt_g[1]
+    gal_wid = popt_g[2]
+    
+    upper_gal = gal_pos + gal_wid*1.5
+    lower_gal = gal_pos - gal_wid*1.5
+    if upper_gal >= 40: upper_gal = 39
+    if lower_gal <= 0: lower_gal = 0
+    raw_gal = d2_spectra_s.T[lower_gal:upper_gal,:]
+    sky = np.append(d2_spectra_s.T[:lower_gal,:],d2_spectra_s.T[upper_gal:,:],axis=0)
+    
+    plt.imshow(np.log(d2_spectra_s.T),aspect=35)
+    plt.axhline(lower_gal,color='k',ls='--')
+    plt.axhline(upper_gal,color='k',ls='--')
     plt.xlim(0,4064)
     plt.show()
-    return d2_spectra.T
 
-hdu = pyfits.open('C4_0199/flats/flat590813.0001b.fits')
-hdu2 = pyfits.open('C4_0199/science/C4_0199_science.0001b.fits')
-hdu3 = pyfits.open('C4_0199/arcs/arc590813.0001b.fits')
-slit_spec = slit_find(hdu[0].data[1470:1540,:],hdu2[0].data[1470:1540,:])
+    plt.plot(np.arange(0,40,1),_gaus(np.arange(0,40,1),*popt_g))
+    plt.plot(np.arange(0,40,1),np.median(d2_spectra_s.T/np.max(d2_spectra_s),axis=1))
+    plt.show()
+    
+    print 'gal dim:',raw_gal.shape
+    print 'sky dim:',sky.shape
+
+    return d2_spectra_s.T,raw_gal-sky[:len(raw_gal)],[lower_gal,upper_gal]
+'''
+for i in range(2):
+    hdu = pyfits.open('C4_0199/flats/flat590813.000'+str(i+1)+'b.fits')
+    hdu2 = pyfits.open('C4_0199/science/C4_0199_science.000'+str(i+1)+'b.fits')
+    hdu3 = pyfits.open('C4_0199/arcs/arc590813.000'+str(i+1)+'b.fits')
+    if i == 0:
+        X = slit_find(hdu[0].data[1470:1540,:],hdu2[0].data[1470:1540,:])
+    else:
+        X += slit_find(hdu[0].data[1470:1540,:],hdu2[0].data[1470:1540,:])
+plt.imshow(np.log(X),aspect=35)
+plt.show()
+'''
+
+hdu = pyfits.open('C4_0199/flats/C4_0199_flat.cr.fits')
+hdu2 = pyfits.open('C4_0199/science/C4_0199_science.cr.fits')
+hdu3 = pyfits.open('C4_0199/arcs/C4_0199_arc.cr.fits')
+X,gal,gal_bounds = slit_find(hdu[0].data[1470:1540,:],hdu2[0].data[1470:1540,:])
+plt.imshow(gal,aspect=35)
+plt.show()
+plt.plot(np.arange(gal.shape[1]),np.sum(gal,axis=0)[::-1])
+plt.show()
