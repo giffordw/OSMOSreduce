@@ -34,6 +34,8 @@ from zpy import *
 from sncalc import *
 #from redshift_checker import *
 from gal_trace import *
+from slit_find import *
+import pprint
 
 def getch():
     import tty, termios
@@ -268,10 +270,10 @@ d.set('regions sky fk5')
 #Loop through mosaic image and decide if objects are galaxies, stars, sky, or other#
 ####################################################################################
 reassign = 'n'
+keys = np.arange(0,Gal_dat.SLIT_WIDTH.size,1).astype('string')
 if os.path.isfile(clus_id+'/'+clus_id+'_slittypes.pkl'):
     reassign = raw_input('Detected slit types file in path. Do you wish to use this (y) or remove and re-assign slit types (n)? ')
 if reassign == 'n':
-    keys = np.arange(0,Gal_dat.SLIT_WIDTH.size,1).astype('string')
     slit_type = {}
     print 'Is this a galaxy (g), a reference star (r), or empty sky (s)?'
     for i in range(len(Gal_dat)):
@@ -372,6 +374,7 @@ if reassign == 'n':
     FINAL_SLIT_X = np.zeros(len(Gal_dat))
     FINAL_SLIT_Y = np.zeros(len(Gal_dat))
     SLIT_WIDTH = np.zeros(len(Gal_dat))
+    spectra = {}
     print 'If needed, move region box to desired location. To increase the size, drag on corners'
     for i in range(SLIT_WIDTH.size):
         d.set('pan to 1150.0 '+str(Gal_dat.SLIT_Y[i])+' physical')
@@ -384,12 +387,11 @@ if reassign == 'n':
                 else: skipgal = True
             else: skipgal = False
             if not skipgal:
-                print 'Is this spectra good (y) or bad (n)?'
+                print 'Move/stretch region box. Hit (y) when ready'
                 while True:
                     char = getch()
-                    if char.lower() in ("y","n"):
+                    if char.lower() in ("y"):
                         break
-                good_spectra = np.append(good_spectra,'y')#char.lower())
                 newpos_str = d.get('regions').split('\n')
                 for n_string in newpos_str:
                     if n_string[:3] == 'box':
@@ -401,6 +403,22 @@ if reassign == 'n':
                         ##
                         #Sky subtract code here
                         ##
+                        science_spec,arc_spec,gal_spec,gal_cuts = slit_find(flatfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],scifits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],arcfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:])
+                        spectra[keys[i]] = {'science_spec':science_spec,'gal_spec':gal_spec,'gal_cuts':gal_cuts}
+
+                        plt.imshow(science_spec,aspect=35)
+                        plt.axhline(gal_cuts[0],color='k',ls='--',lw=1.5)
+                        plt.axhline(gal_cuts[1],color='k',ls='--',lw=1.5)
+                        plt.show(block=False)
+                        
+                        print 'Is this spectra good (y) or bad (n)?'
+                        while True:
+                            char = getch()
+                            if char.lower() in ("y","n"):
+                                break
+                        plt.close()
+                        good_spectra = np.append(good_spectra,'y')#char.lower())
+
 
                         break
             else:
@@ -417,6 +435,7 @@ if reassign == 'n':
         d.set('regions delete all')
     print FINAL_SLIT_X
     np.savetxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',np.array(zip(FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH,good_spectra),dtype=[('float',float),('float2',float),('int',int),('str','|S1')]),delimiter='\t',fmt='%10.2f %10.2f %3d %s')
+    pprint.pprint(spectra,width=1)
 else:
     FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH = np.loadtxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',dtype='float',usecols=(0,1,2),unpack=True)
     good_spectra = np.loadtxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',dtype='string',usecols=(3,),unpack=True)
