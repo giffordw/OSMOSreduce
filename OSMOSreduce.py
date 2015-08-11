@@ -379,7 +379,7 @@ if reassign == 'n':
     for i in range(SLIT_WIDTH.size):
         d.set('pan to 1150.0 '+str(Gal_dat.SLIT_Y[i])+' physical')
         print 'Galaxy at ',Gal_dat.RA[i],Gal_dat.DEC[i]
-        d.set('regions command {box(2000 '+str(Gal_dat.SLIT_Y[i])+' 4500 40) #color=green highlite=1}')
+        d.set('regions command {box(2000 '+str(Gal_dat.SLIT_Y[i])+' 4500 85) #color=green highlite=1}')
         #raw_input('Once done: hit ENTER')
         if Gal_dat.slit_type[i] == 'g':
             if sdss_check:
@@ -406,11 +406,6 @@ if reassign == 'n':
                         science_spec,arc_spec,gal_spec,gal_cuts = slit_find(flatfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],scifits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],arcfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:])
                         spectra[keys[i]] = {'science_spec':science_spec,'gal_spec':gal_spec,'gal_cuts':gal_cuts}
 
-                        plt.imshow(science_spec,aspect=35)
-                        plt.axhline(gal_cuts[0],color='k',ls='--',lw=1.5)
-                        plt.axhline(gal_cuts[1],color='k',ls='--',lw=1.5)
-                        plt.show(block=False)
-                        
                         print 'Is this spectra good (y) or bad (n)?'
                         while True:
                             char = getch()

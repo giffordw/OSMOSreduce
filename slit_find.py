@@ -18,6 +18,7 @@ def _quadfit(x,a,b,c):
     return a*(x-2032)**2 + b*(x-2032) + c
 
 def _gaus(x,a,x0,scat,c):
+    if a <= 0: a = np.inf
     return a*np.exp(-(x-x0)**2/(2*scat**2)) + c
 
 def chip_background(pixels,flux):
@@ -49,7 +50,7 @@ def chip_background(pixels,flux):
     '''
     return np.median(np.sort(flux)[:10])
 
-def identify_slits(pixels,flux,slit_y):
+def identify_slits(pixels,flux,slit_y,good_detect=True):
     """
     """
     diff = flux[5:] - flux[:-5]
@@ -59,27 +60,29 @@ def identify_slits(pixels,flux,slit_y):
     end = []
     for i in range(len(pixels)-5):
         j = i+1
-        if diff[i] > maxdiff*0.8:
+        if diff[i] > maxdiff*0.5:
             if len(start) > 0:
                 if pixels[j]+2 > 10+start[-1]:
                     start.append(pixels[j]+2)
                 else: pass
             else: start.append(pixels[j]+2)
-        elif diff[i] < rmaxdiff*0.8:
+        elif diff[i] < rmaxdiff*0.5:
             if len(end) > 0:
                 if pixels[j]+2 > 10+end[-1]:
                     end.append(pixels[j]+2)
                 else: pass
             else: end.append(pixels[j]+2)
-    if len(start) > len(end):
+    if len(start) > len(end) or len(start) > 1:
         if slit_y < 2032:
             startf = start[:1]
         else:
             startf = start[1:]
+        #else:
+        #    startf = start[1:]
         endf = end
-    elif len(end) > len(start):
+    elif len(end) > len(start) or len(end) > 1:
         startf = start
-        if slit_y < 2032:
+        if end[0] < startf:
             endf = end[1:]
         else:
             endf = end[:1]
@@ -90,6 +93,8 @@ def identify_slits(pixels,flux,slit_y):
         assert len(startf) == 1 and len(endf) == 1, 'Bad slit bounds'
     except:
         return [0],[0]
+    if startf[0] > endf[0]:
+        endf = [startf[0] + 40]
 
     return startf,endf
 
@@ -103,6 +108,7 @@ def slit_find(flux,science_flux,arc_flux):
     first = []
     last = []
     pixels = np.arange(flux.shape[1])
+    flux = np.log(flux)
     plt.imshow(flux - chip_background(pixels,flux),aspect=25)
     for i in range(200):
         flux2 = np.sum(flux[:,50+i*20:70+i*20],axis=1)
@@ -115,22 +121,31 @@ def slit_find(flux,science_flux,arc_flux):
         #plt.plot(end,np.zeros(len(end)),'bo',ms=4)
         #plt.show()
     xpix = np.arange(50,50+200*20,20)
+    last = np.array(last)
+    last = np.ma.masked_where((last<flux.shape[0]/2.0)|(last>=65),last)
+    first = np.array(first)
+    first = np.ma.masked_where((first<=0)|(first>=flux.shape[0]/2.0),first)
     plt.plot(xpix,first,'b')
     plt.plot(xpix,last,'r')
-    #plt.show()
-
+    
     
     ##
     #Fit quadratic
     ##
-    popt,pcov = curve_fit(_quadfit,xpix[:150],last[:150],p0=[1e-4,1e-4,50])
-    plt.plot(xpix,popt[0]*(xpix-2032)**2 + popt[1]*(xpix-2032) + popt[2],'g',lw=2)
-    popt2,pcov = curve_fit(_quadfit,xpix[:150],first[:150],p0=[1e-4,1e-4,50])
-    plt.plot(xpix,popt2[0]*(xpix-2032)**2 + popt2[1]*(xpix-2032) + popt2[2],'g',lw=2)
-    plt.show()
+    #popt,pcov = curve_fit(_quadfit,xpix[:100],last[:100],p0=[1e-4,50])
+    #popt2,pcov = curve_fit(_quadfit,xpix[:100],first[:100],p0=[1e-4,50])
+    popt = np.ma.polyfit(xpix[:200]-2032,last[:200],2)
+    popt2 = np.ma.polyfit(xpix[:200]-2032,first[:200],2)
 
     popt_avg = [np.average([popt[0],popt2[0]]),np.average([popt[1],popt2[1]]),popt2[2]]
-
+    #plt.imshow(flux - chip_background(pixels,flux),aspect=25)
+    #plt.plot(xpix,first,'b')
+    #plt.plot(xpix,last,'r')
+    plt.plot(xpix,_quadfit(xpix,*popt_avg),'g',lw=2)
+    plt.plot(xpix,popt_avg[0]*(xpix-2032)**2 + popt_avg[1]*(xpix-2032) + popt_avg[2]+40,'g',lw=2)
+    plt.show()
+    
+    
     ##
     #cut out slit
     ##
@@ -144,9 +159,11 @@ def slit_find(flux,science_flux,arc_flux):
     ##
     #Identify and cut out galaxy light
     ##
-    popt_g,pcov_g = curve_fit(_gaus,np.arange(0,40,1),np.median(d2_spectra_s.T/np.max(d2_spectra_s),axis=1),p0=[1,20,5.0,0])
+    gal_guess = np.arange(0,40,1)[np.median(d2_spectra_s.T/np.max(d2_spectra_s),axis=1)==np.max(np.median(d2_spectra_s.T/np.max(d2_spectra_s),axis=1))][0]
+    popt_g,pcov_g = curve_fit(_gaus,np.arange(0,40,1),np.median(d2_spectra_s.T/np.max(d2_spectra_s),axis=1),p0=[1,gal_guess,5.0,0])
     gal_pos = popt_g[1]
     gal_wid = popt_g[2]
+    if gal_wid > 5: gal_wid=5
     
     upper_gal = gal_pos + gal_wid*1.5
     lower_gal = gal_pos - gal_wid*1.5
@@ -156,7 +173,7 @@ def slit_find(flux,science_flux,arc_flux):
     sky = np.append(d2_spectra_s.T[:lower_gal,:],d2_spectra_s.T[upper_gal:,:],axis=0)
     sky_sub = np.zeros(raw_gal.shape) + np.median(sky,axis=0)
     
-    plt.imshow(np.log(d2_spectra_s.T),aspect=35)
+    plt.imshow(np.log(d2_spectra_s.T),aspect=35,origin='lower')
     plt.axhline(lower_gal,color='k',ls='--')
     plt.axhline(upper_gal,color='k',ls='--')
     plt.xlim(0,4064)
@@ -169,8 +186,6 @@ def slit_find(flux,science_flux,arc_flux):
     print 'gal dim:',raw_gal.shape
     print 'sky dim:',sky.shape
 
-    plt.plot(np.arange(raw_gal.shape[1]),np.sum(raw_gal,axis=0)[::-1])
-    plt.show()
     plt.plot(np.arange(raw_gal.shape[1]),np.sum(raw_gal-sky_sub,axis=0)[::-1])
     plt.show()
 
