@@ -717,7 +717,14 @@ else:
 
 #summed science slits + filtering to see spectra
 #Flux_science_old = np.array([np.sum(scifits_c2.data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)[::-1] for i in range(len(Gal_dat))])
-Flux_science = np.array([np.sum(spectra[keys[i]]['gal_spec'],axis=0)[::-1] for i in range(len(Gal_dat))])
+#Flux_science = np.array([np.sum(spectra[keys[i]]['gal_spec'],axis=0)[::-1] for i in range(len(Gal_dat))])
+Flux_science = []
+for i in range(len(Gal_dat)):
+    try:
+        Flux_science.append(np.sum(spectra[keys[i]]['gal_spec'],axis=0)[::-1])
+    except KeyError:
+        Flux_science.append(np.zeros(len(Flux_science[i-1])))
+Flux_science = np.array(Flux_science)
 
 #Add parameters to Dataframe
 Gal_dat['shift'],Gal_dat['stretch'],Gal_dat['quad'],Gal_dat['cube'],Gal_dat['fourth'],Gal_dat['fifth'] = shift,stretch,quad,cube,fourth,fifth

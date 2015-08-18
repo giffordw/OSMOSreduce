@@ -9,13 +9,14 @@ from astropy.io import fits as pyfits
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 import warnings
+import pdb
 
 warnings.filterwarnings("ignore")
 
 
-def _quadfit(x,a,b,c):
+def _quadfit(x,a,b):
     '''define quadratic galaxy fitting function'''
-    return a*(x-2032)**2 + b*(x-2032) + c
+    return a*(x-2032)**2 + b
 
 def _gaus(x,a,x0,scat,c):
     if a <= 0: a = np.inf
@@ -144,16 +145,18 @@ def slit_find(flux,science_flux,arc_flux):
     #popt,pcov = curve_fit(_quadfit,xpix[:100],last[:100],p0=[1e-4,50])
     #popt2,pcov = curve_fit(_quadfit,xpix[:100],first[:100],p0=[1e-4,50])
     for i in range(3):
-        popt = np.ma.polyfit(xpix[:120]-2032,last[:120],2)
-        popt2 = np.ma.polyfit(xpix[:120]-2032,first[:120],2)
-        first = np.ma.masked_where(np.abs(first - (popt2[0]*(xpix-2032)**2 + popt2[1]*(xpix-2032) + popt2[2])) >= 10,first)
-
-    popt_avg = [np.average([popt2[0]]),np.average([popt2[1]]),popt2[2]]
+        #popt = np.ma.polyfit(xpix[:120]-2032,last[:120],2)
+        #popt2 = np.ma.polyfit(xpix[:120]-2032,first[:120],2)
+        mask = np.ma.getmask(first[:100])
+        xmask = np.ma.array(xpix[:100],mask=mask)
+        popt2,pcov = curve_fit(_quadfit,xmask.compressed(),first[:100].compressed(),p0=[1e-4,50])
+        first = np.ma.masked_where(np.abs(first - (popt2[0]*(xpix-2032)**2 + popt2[1])) >= 10,first)
+    popt_avg = [np.average([popt2[0]]),popt2[1]]
     #plt.imshow(flux - chip_background(pixels,flux),aspect=25)
     #plt.plot(xpix,first,'b')
     #plt.plot(xpix,last,'r')
     plt.plot(xpix,_quadfit(xpix,*popt_avg),'g',lw=2)
-    plt.plot(xpix,popt_avg[0]*(xpix-2032)**2 + popt_avg[1]*(xpix-2032) + popt_avg[2]+40,'g',lw=2)
+    plt.plot(xpix,popt_avg[0]*(xpix-2032)**2 + popt_avg[1]+40,'g',lw=2)
     plt.show()
     
     
@@ -164,8 +167,8 @@ def slit_find(flux,science_flux,arc_flux):
     d2_spectra_a = np.zeros((arc_flux.shape[1],40))
     for i in range(science_flux.shape[1]):
         yvals = np.arange(0,science_flux.shape[0],1)
-        d2_spectra_s[i] = science_flux[:,i][np.where((yvals>=popt_avg[0]*(i-2032)**2 + popt_avg[1]*(i-2032) + popt_avg[2])&(yvals<=popt_avg[0]*(i-2032)**2 + popt_avg[1]*(i-2032) + popt_avg[2]+45))][:40]
-        d2_spectra_a[i] = arc_flux[:,i][np.where((yvals>=popt_avg[0]*(i-2032)**2 + popt_avg[1]*(i-2032) + popt_avg[2])&(yvals<=popt_avg[0]*(i-2032)**2 + popt_avg[1]*(i-2032) + popt_avg[2]+45))][:40]
+        d2_spectra_s[i] = science_flux[:,i][np.where((yvals>=popt_avg[0]*(i-2032)**2 + popt_avg[1])&(yvals<=popt_avg[0]*(i-2032)**2 + popt_avg[1]+45))][:40]
+        d2_spectra_a[i] = arc_flux[:,i][np.where((yvals>=popt_avg[0]*(i-2032)**2 + popt_avg[1])&(yvals<=popt_avg[0]*(i-2032)**2 + popt_avg[1]+45))][:40]
 
     ##
     #Identify and cut out galaxy light
@@ -176,8 +179,8 @@ def slit_find(flux,science_flux,arc_flux):
     gal_wid = popt_g[2]
     if gal_wid > 5: gal_wid=5
     
-    upper_gal = gal_pos + gal_wid*1.5
-    lower_gal = gal_pos - gal_wid*1.5
+    upper_gal = gal_pos + gal_wid*2.0
+    lower_gal = gal_pos - gal_wid*2.0
     if upper_gal >= 40: upper_gal = 39
     if lower_gal <= 0: lower_gal = 0
     raw_gal = d2_spectra_s.T[lower_gal:upper_gal,:]
