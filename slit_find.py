@@ -54,25 +54,28 @@ def identify_slits(pixels,flux,slit_y,good_detect=True):
     """
     """
     diff = flux[5:] - flux[:-5]
-    maxdiff = np.max(diff)
-    rmaxdiff = np.min(diff)
+    diffpix = pixels[2:][:diff.size]
+    maxdiff = np.max(diff[diffpix<flux.shape[0]/2.0])
+    rmaxdiff = np.min(diff[diffpix>flux.shape[0]/2.0])
     start = []
     end = []
     for i in range(len(pixels)-5):
         j = i+1
-        if diff[i] > maxdiff*0.5:
+        if diff[i] > maxdiff*0.80:
             if len(start) > 0:
                 if pixels[j]+2 > 10+start[-1]:
                     start.append(pixels[j]+2)
                 else: pass
             else: start.append(pixels[j]+2)
-        elif diff[i] < rmaxdiff*0.5:
+        elif diff[i] < rmaxdiff*0.80:
             if len(end) > 0:
                 if pixels[j]+2 > 10+end[-1]:
                     end.append(pixels[j]+2)
                 else: pass
             else: end.append(pixels[j]+2)
-    if len(start) > len(end) or len(start) > 1:
+    start = np.array(start)[np.array(start) < len(pixels) - 40]
+    end = np.array(end)[np.array(end)> start[0]+35]
+    if len(start) > len(end):
         if slit_y < 2032:
             startf = start[:1]
         else:
@@ -80,10 +83,10 @@ def identify_slits(pixels,flux,slit_y,good_detect=True):
         #else:
         #    startf = start[1:]
         endf = end
-    elif len(end) > len(start) or len(end) > 1:
+    elif len(end) > len(start):
         startf = start
-        if end[0] < startf:
-            endf = end[1:]
+        if end[0] < startf[0]:
+            endf = np.array(end)[end>startf[0]+35]
         else:
             endf = end[:1]
     else:
@@ -92,7 +95,14 @@ def identify_slits(pixels,flux,slit_y,good_detect=True):
     try:
         assert len(startf) == 1 and len(endf) == 1, 'Bad slit bounds'
     except:
-        return [0],[0]
+        if len(startf) > len(endf) and len(endf) == 1:
+            diff = np.abs(40 - (endf[0] - np.array(startf)))
+            return np.array(startf)[diff == np.min(diff)],endf
+        elif len(endf) > len(startf) and len(startf) == 1:
+            diff = np.abs(40 - (np.array(endf) - startf[0]))
+            return startf,np.array(endf)[diff == np.min(diff)]
+        else:
+            return [0],[0]
     if startf[0] > endf[0]:
         endf = [startf[0] + 40]
 
@@ -104,7 +114,6 @@ def slit_find(flux,science_flux,arc_flux):
     ##
     #Idenfity slit position as function of x
     ##
-
     first = []
     last = []
     pixels = np.arange(flux.shape[1])
@@ -122,9 +131,9 @@ def slit_find(flux,science_flux,arc_flux):
         #plt.show()
     xpix = np.arange(50,50+200*20,20)
     last = np.array(last)
-    last = np.ma.masked_where((last<flux.shape[0]/2.0)|(last>=65),last)
+    last = np.ma.masked_where((last<35)|(last>=flux.shape[0]),last)
     first = np.array(first)
-    first = np.ma.masked_where((first<=0)|(first>=flux.shape[0]/2.0),first)
+    first = np.ma.masked_where((first<=0)|(first>=flux.shape[0]-40),first)
     plt.plot(xpix,first,'b')
     plt.plot(xpix,last,'r')
     
@@ -134,10 +143,12 @@ def slit_find(flux,science_flux,arc_flux):
     ##
     #popt,pcov = curve_fit(_quadfit,xpix[:100],last[:100],p0=[1e-4,50])
     #popt2,pcov = curve_fit(_quadfit,xpix[:100],first[:100],p0=[1e-4,50])
-    popt = np.ma.polyfit(xpix[:200]-2032,last[:200],2)
-    popt2 = np.ma.polyfit(xpix[:200]-2032,first[:200],2)
+    for i in range(3):
+        popt = np.ma.polyfit(xpix[:120]-2032,last[:120],2)
+        popt2 = np.ma.polyfit(xpix[:120]-2032,first[:120],2)
+        first = np.ma.masked_where(np.abs(first - (popt2[0]*(xpix-2032)**2 + popt2[1]*(xpix-2032) + popt2[2])) >= 10,first)
 
-    popt_avg = [np.average([popt[0],popt2[0]]),np.average([popt[1],popt2[1]]),popt2[2]]
+    popt_avg = [np.average([popt2[0]]),np.average([popt2[1]]),popt2[2]]
     #plt.imshow(flux - chip_background(pixels,flux),aspect=25)
     #plt.plot(xpix,first,'b')
     #plt.plot(xpix,last,'r')
@@ -172,6 +183,7 @@ def slit_find(flux,science_flux,arc_flux):
     raw_gal = d2_spectra_s.T[lower_gal:upper_gal,:]
     sky = np.append(d2_spectra_s.T[:lower_gal,:],d2_spectra_s.T[upper_gal:,:],axis=0)
     sky_sub = np.zeros(raw_gal.shape) + np.median(sky,axis=0)
+    sky_sub_tot = np.zeros(d2_spectra_s.T.shape) + np.median(sky,axis=0)
     
     plt.imshow(np.log(d2_spectra_s.T),aspect=35,origin='lower')
     plt.axhline(lower_gal,color='k',ls='--')
@@ -185,6 +197,9 @@ def slit_find(flux,science_flux,arc_flux):
     
     print 'gal dim:',raw_gal.shape
     print 'sky dim:',sky.shape
+
+    plt.imshow(np.log(d2_spectra_s.T-sky_sub_tot),aspect=35,origin='lower')
+    plt.show()
 
     plt.plot(np.arange(raw_gal.shape[1]),np.sum(raw_gal-sky_sub,axis=0)[::-1])
     plt.show()

@@ -377,6 +377,7 @@ if reassign == 'n':
     spectra = {}
     print 'If needed, move region box to desired location. To increase the size, drag on corners'
     for i in range(SLIT_WIDTH.size):
+        print 'SLIT ',i
         d.set('pan to 1150.0 '+str(Gal_dat.SLIT_Y[i])+' physical')
         print 'Galaxy at ',Gal_dat.RA[i],Gal_dat.DEC[i]
         d.set('regions command {box(2000 '+str(Gal_dat.SLIT_Y[i])+' 4500 85) #color=green highlite=1}')
@@ -387,35 +388,42 @@ if reassign == 'n':
                 else: skipgal = True
             else: skipgal = False
             if not skipgal:
-                print 'Move/stretch region box. Hit (y) when ready'
-                while True:
-                    char = getch()
-                    if char.lower() in ("y"):
-                        break
-                newpos_str = d.get('regions').split('\n')
-                for n_string in newpos_str:
-                    if n_string[:3] == 'box':
-                        newpos = re.search('box\(.*,(.*),.*,(.*),.*\)',n_string)
-                        FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
-                        FINAL_SLIT_Y[i] = newpos.group(1)
-                        SLIT_WIDTH[i] = newpos.group(2)
+                good = False
+                while not good:
+                    good = True
+                    print 'Move/stretch region box. Hit (y) when ready'
+                    while True:
+                        char = getch()
+                        if char.lower() in ("y"):
+                            break
+                    newpos_str = d.get('regions').split('\n')
+                    for n_string in newpos_str:
+                        if n_string[:3] == 'box':
+                            newpos = re.search('box\(.*,(.*),.*,(.*),.*\)',n_string)
+                            FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
+                            FINAL_SLIT_Y[i] = newpos.group(1)
+                            SLIT_WIDTH[i] = newpos.group(2)
 
-                        ##
-                        #Sky subtract code here
-                        ##
-                        science_spec,arc_spec,gal_spec,gal_cuts = slit_find(flatfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],scifits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],arcfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:])
-                        spectra[keys[i]] = {'science_spec':science_spec,'gal_spec':gal_spec,'gal_cuts':gal_cuts}
+                            ##
+                            #Sky subtract code
+                            ##
+                            try:
+                                science_spec,arc_spec,gal_spec,gal_cuts = slit_find(flatfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],scifits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],arcfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:])
+                                spectra[keys[i]] = {'science_spec':science_spec,'arc_spec':arc_spec,'gal_spec':gal_spec,'gal_cuts':gal_cuts}
 
-                        print 'Is this spectra good (y) or bad (n)?'
-                        while True:
-                            char = getch()
-                            if char.lower() in ("y","n"):
+                                print 'Is this spectra good (y) or bad (n)?'
+                                while True:
+                                    char = getch()
+                                    if char.lower() in ("y","n"):
+                                        break
+                                plt.close()
+                                good_spectra = np.append(good_spectra,'y')#char.lower())
+
+
                                 break
-                        plt.close()
-                        good_spectra = np.append(good_spectra,'y')#char.lower())
-
-
-                        break
+                            except:
+                                print 'Fit did not fall within the chosen box. Please re-define the area of interest.'
+                                good = False
             else:
                 good_spectra = np.append(good_spectra,'n')
                 FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
@@ -431,9 +439,11 @@ if reassign == 'n':
     print FINAL_SLIT_X
     np.savetxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',np.array(zip(FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH,good_spectra),dtype=[('float',float),('float2',float),('int',int),('str','|S1')]),delimiter='\t',fmt='%10.2f %10.2f %3d %s')
     pprint.pprint(spectra,width=1)
+    pickle.dump(spectra,open(clus_id+'/'+clus_id+'_reduced_spectra.pkl','wb'))
 else:
     FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH = np.loadtxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',dtype='float',usecols=(0,1,2),unpack=True)
     good_spectra = np.loadtxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',dtype='string',usecols=(3,),unpack=True)
+    spectra = pickle.load(open(clus_id+'/'+clus_id+'_reduced_spectra.pkl','rb'))
 
 Gal_dat['FINAL_SLIT_X'],Gal_dat['FINAL_SLIT_Y'],Gal_dat['SLIT_WIDTH'],Gal_dat['good_spectra'] = FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH,good_spectra
 
@@ -494,7 +504,7 @@ if reassign == 'n':
     #do reduction for initial galaxy
     while ii <= stretch.size:
         if good_spectra[ii]=='y':
-            f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[ii]-Gal_dat.SLIT_WIDTH[ii]/2.0:Gal_dat.FINAL_SLIT_Y[ii]+Gal_dat.SLIT_WIDTH[ii]/2.0,:],axis=0)
+            f_x = np.sum(spectra[keys[ii]]['arc_spec'],axis=0)
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' 4500 '+str(Gal_dat.SLIT_WIDTH[ii])+') #color=green highlite=1}')
             stretch_est[ii],shift_est[ii],quad_est[ii] = interactive_plot(p_x,f_x,stretch_est[ii],shift_est[ii],quad_est[ii],cube_est[ii],fourth_est[ii],fifth_est[ii],Gal_dat.FINAL_SLIT_X_FLIP[ii],wm,fm)
@@ -571,6 +581,9 @@ if reassign == 'n':
                 os.mkdir(clus_id+'/figs')
                 plt.savefig(clus_id+'/figs/'+str(ii)+'.wave.png')
             plt.show()
+            plt.plot((np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),np.sort(browser.line_matches['lines']),'k.')
+            plt.plot((np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),params[0]+params[1]*(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii])+params[2]*(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2+params[3]*(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii])**3.0+params[4]*(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii])**4.0+params[5]*(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii])**5.0,'b')
+            plt.show()
             f.write(str(Gal_dat.FINAL_SLIT_X_FLIP[ii])+'\t')
             f.write(str(Gal_dat.FINAL_SLIT_Y[ii])+'\t')
             f.write(str(shift[ii])+'\t')
@@ -607,7 +620,7 @@ if reassign == 'n':
             else: skipgal = False
             if not skipgal:
                 p_x = np.arange(0,4064,1)
-                f_x = np.sum(calib_data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)
+                f_x = np.sum(spectra[keys[i]]['arc_spec'],axis=0)
                 d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[i])+' physical')
                 d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[i])+' 4500 '+str(Gal_dat.SLIT_WIDTH[i])+') #color=green highlite=1}')
                 #stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]-(Gal_dat.FINAL_SLIT_X_FLIP[i]*stretch_est[0]-Gal_dat.FINAL_SLIT_X_FLIP[i-1]*stretch_est[i-1]),quad[i-1],cube[i-1],fourth[i-1],fifth[i-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
@@ -707,7 +720,7 @@ else:
 
 #summed science slits + filtering to see spectra
 #Flux_science_old = np.array([np.sum(scifits_c2.data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)[::-1] for i in range(len(Gal_dat))])
-Flux_science = np.array([gal_trace(scifits_c2.data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:])[::-1] for i in range(len(Gal_dat))])
+Flux_science = np.array([np.sum(spectra[keys[i]]['gal_spec'],axis=0)[::-1] for i in range(len(Gal_dat))])
 
 #Add parameters to Dataframe
 Gal_dat['shift'],Gal_dat['stretch'],Gal_dat['quad'],Gal_dat['cube'],Gal_dat['fourth'],Gal_dat['fifth'] = shift,stretch,quad,cube,fourth,fifth
