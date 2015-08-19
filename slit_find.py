@@ -18,9 +18,9 @@ def _quadfit(x,a,b):
     '''define quadratic galaxy fitting function'''
     return a*(x-2032)**2 + b
 
-def _gaus(x,a,x0,scat,c):
+def _gaus(x,a,x0,c):
     if a <= 0: a = np.inf
-    return a*np.exp(-(x-x0)**2/(2*scat**2)) + c
+    return a*np.exp(-(x-x0)**2/(2*4.0**2)) + c
 
 def chip_background(pixels,flux):
     """
@@ -174,9 +174,9 @@ def slit_find(flux,science_flux,arc_flux):
     #Identify and cut out galaxy light
     ##
     gal_guess = np.arange(0,40,1)[np.median(d2_spectra_s.T/np.max(d2_spectra_s),axis=1)==np.max(np.median(d2_spectra_s.T/np.max(d2_spectra_s),axis=1))][0]
-    popt_g,pcov_g = curve_fit(_gaus,np.arange(0,40,1),np.median(d2_spectra_s.T/np.max(d2_spectra_s),axis=1),p0=[1,gal_guess,5.0,0])
+    popt_g,pcov_g = curve_fit(_gaus,np.arange(0,40,1),np.median(d2_spectra_s.T/np.max(d2_spectra_s),axis=1),p0=[1,gal_guess,0])
     gal_pos = popt_g[1]
-    gal_wid = popt_g[2]
+    gal_wid = 4.0
     if gal_wid > 5: gal_wid=5
     
     upper_gal = gal_pos + gal_wid*2.0

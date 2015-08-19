@@ -4,7 +4,7 @@ In the .oms file, the first and last RA/DEC represent a reference slit at the bo
 
 Please list the calibration lamp(s) used during your observations here
 '''
-cal_lamp = ['Xenon','Argon'] #'Xenon','Argon','HgNe','Neon'
+cal_lamp = ['Argon'] #'Xenon','Argon','HgNe','Neon'
 print 'Using calibration lamps: ', cal_lamp
 
 import numpy as np
@@ -352,7 +352,7 @@ reassign = 'n'
 if os.path.isfile(clus_id+'/'+clus_id+'_slit_pos_qual.tab'):
     reassign = raw_input('Detected slit position and quality file in path. Do you wish to use this (y) or remove and re-adjust (n)? ')
 if reassign == 'n':
-    good_spectra = np.array([])
+    good_spectra = np.array(['n']*len(Gal_dat))
     FINAL_SLIT_X = np.zeros(len(Gal_dat))
     FINAL_SLIT_Y = np.zeros(len(Gal_dat))
     SLIT_WIDTH = np.zeros(len(Gal_dat))
@@ -371,7 +371,8 @@ if reassign == 'n':
             else: skipgal = False
             if not skipgal:
                 good = False
-                while not good:
+                loops = 1
+                while not good and loops <=3:
                     good = True
                     print 'Move/stretch region box. Hit (y) when ready'
                     while True:
@@ -399,20 +400,26 @@ if reassign == 'n':
                                     if char.lower() in ("y","n"):
                                         break
                                 plt.close()
-                                good_spectra = np.append(good_spectra,'y')#char.lower())
+                                good_spectra[i] = char.lower()
 
 
                                 break
                             except:
                                 print 'Fit did not fall within the chosen box. Please re-define the area of interest.'
                                 good = False
+                    loops += 1
+                if loops == 4:
+                    good_spectra[i] = 'n'
+                    FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
+                    FINAL_SLIT_Y[i] = Gal_dat.SLIT_Y[i]
+                    SLIT_WIDTH[i] = 40
             else:
-                good_spectra = np.append(good_spectra,'n')
+                good_spectra[i] = 'n'
                 FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
                 FINAL_SLIT_Y[i] = Gal_dat.SLIT_Y[i]
                 SLIT_WIDTH[i] = 40
         else:
-            good_spectra = np.append(good_spectra,'n')
+            good_spectra[i] = 'n'
             FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
             FINAL_SLIT_Y[i] = Gal_dat.SLIT_Y[i]
             SLIT_WIDTH[i] = 40
@@ -730,7 +737,7 @@ for k in range(len(Gal_dat)):
 
     Flux_sc = Flux_science2 - signal.medfilt(Flux_science2,171)
 
-    if Gal_dat.slit_type[k] == 'g':
+    if Gal_dat.slit_type[k] == 'g' and Gal_dat.good_spectra[k] == 'y':
         if sdss_check:
             if Gal_dat.spec_z[k] != 0.0: skipgal = False
             else: skipgal = True
