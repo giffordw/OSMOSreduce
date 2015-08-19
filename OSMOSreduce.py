@@ -4,7 +4,7 @@ In the .oms file, the first and last RA/DEC represent a reference slit at the bo
 
 Please list the calibration lamp(s) used during your observations here
 '''
-cal_lamp = ['Xenon'] #'Xenon','Argon','HgNe','Neon'
+cal_lamp = ['Xenon','Argon'] #'Xenon','Argon','HgNe','Neon'
 print 'Using calibration lamps: ', cal_lamp
 
 import numpy as np
@@ -147,13 +147,6 @@ science_file = sciencefiles[0]
 hdulist_science = pyfits.open(clus_id+'/science/'+science_file)
 naxis1 = hdulist_science[0].header['NAXIS1']
 naxis2 = hdulist_science[0].header['NAXIS2']
-
-#import sky data
-for file in os.listdir('./'+clus_id+'/offset_sky/'):
-    if fnmatch.fnmatch(file, '*0001b.fits'):
-        hdulist_sky = pyfits.open(clus_id+'/offset_sky/'+file)
-try: test = hdulist_sky
-except: raise Exception('proc4k.py did not detect any offset sky files')
 
 #import flat data
 flatfiles = np.array([])
@@ -322,17 +315,6 @@ else:
     scifits_c = pyfits.open(clus_id+'/science/'+clus_id+'_science.cr.fits')[0]
     print 'loading pre-prepared cosmic ray filtered files...'
 
-print 'SKY REDUCTION'
-if redo == 'n':
-    try:
-        os.remove(clus_id+'/offset_sky/'+clus_id+'_offset.cr.fits')
-    except: pass
-    skyfits_c = copy.copy(hdulist_sky)
-    filt = filter_image(hdulist_sky[0].data)
-    skyfits_c[0].data = filt + np.abs(np.nanmin(filt))
-    skyfits_c.writeto(clus_id+'/offset_sky/'+clus_id+'_offset.cr.fits')
-else: skyfits_c = pyfits.open(clus_id+'/offset_sky/'+clus_id+'_offset.cr.fits')
-
 print 'FLAT REDUCTION'
 if redo == 'n':
     try:
@@ -450,32 +432,6 @@ Gal_dat['FINAL_SLIT_X'],Gal_dat['FINAL_SLIT_Y'],Gal_dat['SLIT_WIDTH'],Gal_dat['g
 #Need to flip FINAL_SLIT_X coords to account for reverse wavelength spectra
 Gal_dat['FINAL_SLIT_X_FLIP'] = 4064 - Gal_dat.FINAL_SLIT_X
 ####################################################################
-
-
-##############################
-#divide science image by flat#
-##############################
-scifits_c2 = copy.copy(scifits_c)
-
-#remove skies via least residual and apply master flat
-sky_step = hdulists_science.size - np.linspace(-1.0,1.0,20)
-total_resid = np.array([])
-for ss in sky_step:
-    scifits_c2.data = np.ma.masked_invalid((scifits_c.data - skyfits_c[0].data*ss) / flatfits_c.data)
-    each_resid = 0
-    skies = np.array(slit_type.keys())[np.where(slit_type.values()=='s')]
-    for i in range(len(slit_type.values())):
-        if slit_type[str(i)] == 's':
-            each_resid += np.sum(np.abs(scifits_c2.data[np.int(np.floor(FINAL_SLIT_Y[i]-SLIT_WIDTH[i])):np.int(np.ceil(FINAL_SLIT_Y[i]+SLIT_WIDTH[i]))]))
-    total_resid = np.append(total_resid,each_resid)
-best_sub = sky_step[np.where(total_resid == np.min(total_resid))][0]
-scifits_c2.data = np.ma.masked_invalid((scifits_c.data - skyfits_c[0].data*best_sub) / flatfits_c.data)
-scifits_c2.data = np.ma.filled(scifits_c2.data,0.0)
-if os.path.isfile(clus_id+'/science/'+clus_id+'_science.reduced.fits'):
-    print 'WARNING: Overwriting pre-existing reduction file %s'%(clus_id+'/science/'+clus_id+'_science.reduced.fits')
-    os.remove(clus_id+'/science/'+clus_id+'_science.reduced.fits')
-scifits_c2.writeto(clus_id+'/science/'+clus_id+'_science.reduced.fits')
-
 
 
 ########################
