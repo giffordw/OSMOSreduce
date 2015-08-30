@@ -256,7 +256,7 @@ def interactive_plot_plus(px,fx,wm,fm,stretch_0,shift_0,quad_0):
     return (quad_0*(px-2032.0)**2+px*stretch_est+shift_est,fx,stretch_est,shift_est)
 
 class LineBrowser:
-    def __init__(self,fig,ax,line,wm,fm,px,vlines,fline,xspectra,yspectra,peaks_w,peaks_p,peaks_h,line_matches,cal_states):
+    def __init__(self,fig,ax,est_f,wm,fm,px,xslit,vlines,fline,xspectra,yspectra,peaks,peaks_w,peaks_p,peaks_h,line_matches,cal_states):
         #load calibration files
         self.wm_Xe,self.fm_Xe = np.loadtxt('osmos_Xenon.dat',usecols=(0,2),unpack=True)
         self.wm_Xe = air_to_vacuum(self.wm_Xe)
@@ -266,19 +266,31 @@ class LineBrowser:
         self.wm_HgNe = air_to_vacuum(self.wm_HgNe)
         self.wm_Ne,self.fm_Ne = np.loadtxt('osmos_Ne.dat',usecols=(0,2),unpack=True)
         self.wm_Ne = air_to_vacuum(self.wm_Ne)
+        
+        #slider objects
+        fn_axquad = plt.axes([0.25,0.03,0.65,0.03])
+        fn_axstretch = plt.axes([0.25,0.07,0.65,0.03])
+        fn_axshift = plt.axes([0.25,0.12,0.65,0.03])
+        self.fn_slide_stretch = Slider(fn_axstretch, 'Fine Stretch',-0.05,0.05,valinit=0.0)
+        self.fn_slide_shift = Slider(fn_axshift,'Fine Shift',-200.0,200.0,valinit=0.0)
+        self.fn_slide_quad = Slider(fn_axquad,'Fine Quad',-4e-5,4e-5,valinit=0.0)
+        self.fn_slide_stretch.on_changed(self.slider_update)
+        self.fn_slide_shift.on_changed(self.slider_update)
+        self.fn_slide_quad.on_changed(self.slider_update)
 
         self.lastind = 0
 
         self.j = 0
+        self.est_f = est_f
         self.px = px
         self.fig = fig
         self.ax = ax
         self.wm = wm
-        self.line = line
         self.vlines = vlines
         self.fline = fline
         self.xspectra = xspectra
         self.yspectra = yspectra
+        self.peaks = peaks
         self.peaks_w = peaks_w
         self.peaks_p = peaks_p
         self.peaks_h = peaks_h
@@ -292,6 +304,20 @@ class LineBrowser:
         self.selected_peak, = self.ax.plot(self.line_matches['peaks_w'][self.j],self.line_matches['peaks_h'][self.j],'o',mec='orange',markersize=8,alpha=0.7,mfc='None',mew=3,visible=True)
         self.selected_peak_line = self.ax.axvline(self.line_matches['peaks_w'][self.j],color='cyan',lw=4,alpha=0.3,ymax=0.5,visible=True)
         self.reset_lims()
+
+    def slider_update(self,val):
+        #update new wavelength spacing
+        self.xspectra = self.est_f[0]*(self.px)**5 + self.est_f[1]*(self.px)**4 + self.est_f[2]*(self.px)**3 + (self.est_f[3]+self.fn_slide_quad.val)*(self.px)**2+(self.est_f[4]+self.fn_slide_stretch.val)*(self.px)+(self.est_f[5]+self.fn_slide_shift.val)
+        self.fline.set_xdata(self.xspectra)
+        self.peaks_w = self.xspectra[self.peaks]
+        for k in range(self.wm[self.j:].size):
+            kj = k + self.j
+            self.line_matches['peaks_p'][kj] = self.peaks_p[np.argsort(np.abs(self.wm[kj]-self.peaks_w))][0] #closest peak (in pixels)
+            self.line_matches['peaks_w'][kj] = self.peaks_w[np.argsort(np.abs(self.wm[kj]-self.peaks_w))][0] #closest peak (in wavelength)
+            self.line_matches['peaks_h'][kj] = self.peaks_h[np.argsort(np.abs(self.wm[kj]-self.peaks_w))][0] #closest peak (height)
+        self.mindist_el, = np.where(self.peaks_w == self.line_matches['peaks_w'][self.j])
+        self.update_circle()
+        self.fig.canvas.draw_idle()
 
     def update_current(self):
         if self.j >= len(self.line_matches['peaks_w']):
@@ -343,9 +369,6 @@ class LineBrowser:
         self.selected_peak.set_xdata([self.peaks_w[self.mindist_el]])
         self.selected_peak.set_ydata([self.peaks_h[self.mindist_el]])
         self.fig.canvas.draw()
-
-    def replace_b(self,event):
-        self.replace()
 
     def replace(self):
         self.line_matches['peaks_p'][self.j] = self.peaks_p[self.mindist_el]
@@ -414,11 +437,15 @@ class LineBrowser:
     def delete_b(self,event):
         self.delete()
 
+    def replace_b(self,event):
+        self.replace()
+
     def delete(self):
         self.line_matches['lines'].pop(self.j)
         self.line_matches['peaks_p'].pop(self.j)
         self.line_matches['peaks_w'].pop(self.j)
         self.line_matches['peaks_h'].pop(self.j)
+        self.wm = np.delete(self.wm,self.j)
         self.update_current()
         return
 

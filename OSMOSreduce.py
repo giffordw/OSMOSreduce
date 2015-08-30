@@ -4,7 +4,7 @@ In the .oms file, the first and last RA/DEC represent a reference slit at the bo
 
 Please list the calibration lamp(s) used during your observations here
 '''
-cal_lamp = ['Argon'] #'Xenon','Argon','HgNe','Neon'
+cal_lamp = ['Xenon'] #'Xenon','Argon','HgNe','Neon'
 print 'Using calibration lamps: ', cal_lamp
 
 import numpy as np
@@ -470,10 +470,13 @@ if reassign == 'n':
             f_x = np.sum(spectra[keys[ii]]['arc_spec'],axis=0)
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[ii])+' 4500 '+str(Gal_dat.SLIT_WIDTH[ii])+') #color=green highlite=1}')
+            
+            #initial stretch and shift
             stretch_est[ii],shift_est[ii],quad_est[ii] = interactive_plot(p_x,f_x,stretch_est[ii],shift_est[ii],quad_est[ii],cube_est[ii],fourth_est[ii],fifth_est[ii],Gal_dat.FINAL_SLIT_X_FLIP[ii],wm,fm)
 
             #run peak identifier and match lines to peaks
             line_matches = {'lines':[],'peaks_p':[],'peaks_w':[],'peaks_h':[]}
+            est_features = [fifth_est[ii],fourth_est[ii],cube_est[ii],quad_est[ii],stretch_est[ii],shift_est[ii]]
             xspectra = fifth_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**5 + fourth_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**4 + cube_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**3 + quad_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii]
             fydat = f_x[::-1] - signal.medfilt(f_x[::-1],171) #used to find noise
             fyreal = (f_x[::-1]-f_x.min())/10.0
@@ -483,6 +486,7 @@ if reassign == 'n':
             fypeak = fydat[peaks] #peaks heights (for noise)
             fyrpeak = fyreal[peaks] #peak heights
             noise = np.std(np.sort(fydat)[:np.round(fydat.size*0.5)]) #noise level
+            peaks = peaks[0][fypeak>noise]
             fxpeak = fxpeak[fypeak>noise] #significant peaks in wavelength
             fxrpeak = fxrpeak[fypeak>noise] #significant peaks in pixels
             fypeak = fyrpeak[fypeak>noise] #significant peaks height
@@ -495,15 +499,18 @@ if reassign == 'n':
             #Pick lines for initial parameter fit
             cal_states = {'Xe':True,'Ar':False,'HgNe':False,'Ne':False}
             fig,ax = plt.subplots(1)
-            plt.subplots_adjust(right=0.8)
+            #maximize window
+            figManager = plt.get_current_fig_manager()
+            figManager.window.showMaximized()
+            plt.subplots_adjust(right=0.8,left=0.05,bottom=0.20)
             vlines = []
             for j in range(wm.size):
                 vlines.append(ax.axvline(wm[j],color='r',alpha=0.5))
-            line, = ax.plot(wm,np.zeros(wm.size),'ro',picker=5)# 5 points tolerance
+            line, = ax.plot(wm,np.zeros(wm.size),'ro')
             yspectra = (f_x[::-1]-f_x.min())/10.0
             fline, = plt.plot(xspectra,yspectra,'b',lw=1.5,picker=5)
-            estx = quad_est[ii]*(line_matches['peaks_p']-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2 + stretch_est[ii]*(line_matches['peaks_p']-Gal_dat.FINAL_SLIT_X_FLIP[ii]) + shift_est[ii]
-            browser = LineBrowser(fig,ax,line,wm,fm,p_x,vlines,fline,xspectra,yspectra,fxpeak,fxrpeak,fypeak,line_matches,cal_states)
+            
+            browser = LineBrowser(fig,ax,est_features,wm,fm,p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii],Gal_dat.FINAL_SLIT_X_FLIP[ii],vlines,fline,xspectra,yspectra,peaks,fxpeak,fxrpeak,fypeak,line_matches,cal_states)
             fig.canvas.mpl_connect('button_press_event', browser.onclick)
             fig.canvas.mpl_connect('key_press_event',browser.onpress)
             finishax = plt.axes([0.83,0.85,0.15,0.1])
@@ -521,6 +528,7 @@ if reassign == 'n':
             #stateax = plt.axes([0.83,0.05,0.15,0.1])
             #states = CheckButtons(stateax,cal_states.keys(), cal_states.values())
             #states.on_clicked(browser.set_calib_lines)
+            fig.canvas.draw()
             plt.show()
                 
             params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),np.sort(browser.line_matches['lines']),p0=[shift_est[ii],stretch_est[ii],quad_est[ii],1e-8,1e-12,1e-12])
@@ -586,6 +594,7 @@ if reassign == 'n':
                 #stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i-1],shift_est[i-1]-(Gal_dat.FINAL_SLIT_X_FLIP[i]*stretch_est[0]-Gal_dat.FINAL_SLIT_X_FLIP[i-1]*stretch_est[i-1]),quad[i-1],cube[i-1],fourth[i-1],fifth[i-1],Gal_dat.FINAL_SLIT_X_FLIP[i])
                 reduced_slits = np.where(stretch != 0.0)
                 stretch_est[i],shift_est[i],quad_est[i] = interactive_plot(p_x,f_x,stretch_est[i],shift_est[i],quad_est[i],cube_est[i],fourth_est[i],fifth_est[i],Gal_dat.FINAL_SLIT_X_FLIP[i],wm,fm)
+                est_features = [fifth_est[i],fourth_est[i],cube_est[i],quad_est[i],stretch_est[i],shift_est[i]]
 
                 #run peak identifier and match lines to peaks
                 line_matches = {'lines':[],'peaks_p':[],'peaks_w':[],'peaks_h':[]}
@@ -598,6 +607,7 @@ if reassign == 'n':
                 fypeak = fydat[peaks] #peaks heights (for noise)
                 fyrpeak = fyreal[peaks] #peak heights
                 noise = np.std(np.sort(fydat)[:np.round(fydat.size*0.5)]) #noise level
+                peaks = peaks[0][fypeak>noise]
                 fxpeak = fxpeak[fypeak>noise] #significant peaks in wavelength
                 fxrpeak = fxrpeak[fypeak>noise] #significant peaks in pixels
                 fypeak = fyrpeak[fypeak>noise] #significant peaks height
@@ -609,7 +619,10 @@ if reassign == 'n':
             
                 cal_states = {'Xe':True,'Ar':False,'HgNe':False,'Ne':False}
                 fig,ax = plt.subplots(1)
-                plt.subplots_adjust(right=0.8)
+                plt.subplots_adjust(right=0.8,left=0.05,bottom=0.20)
+                #maximize window
+                figManager = plt.get_current_fig_manager()
+                figManager.window.showMaximized()
                 vlines = []
                 for j in range(wm.size):
                     vlines.append(ax.axvline(wm[j],color='r'))
@@ -617,7 +630,8 @@ if reassign == 'n':
                 yspectra = (f_x[::-1]-f_x.min())/10.0
                 fline, = plt.plot(xspectra,yspectra,'b',lw=1.5,picker=5)
                 estx = quad_est[i]*(line_matches['peaks_p']-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + stretch_est[i]*(line_matches['peaks_p']-Gal_dat.FINAL_SLIT_X_FLIP[i]) + shift_est[i]
-                browser = LineBrowser(fig,ax,line,wm,fm,p_x,vlines,fline,xspectra,yspectra,fxpeak,fxrpeak,fypeak,line_matches,cal_states)
+
+                browser = LineBrowser(fig,ax,est_features,wm,fm,p_x-Gal_dat.FINAL_SLIT_X_FLIP[i],Gal_dat.FINAL_SLIT_X_FLIP[i],vlines,fline,xspectra,yspectra,peaks,fxpeak,fxrpeak,fypeak,line_matches,cal_states)
                 fig.canvas.mpl_connect('button_press_event', browser.onclick)
                 fig.canvas.mpl_connect('key_press_event',browser.onpress)
                 finishax = plt.axes([0.83,0.85,0.15,0.1])
@@ -635,6 +649,7 @@ if reassign == 'n':
                 #stateax = plt.axes([0.83,0.05,0.15,0.1])
                 #states = CheckButtons(stateax,cal_states.keys(), cal_states.values())
                 #states.on_clicked(browser.set_calib_lines)
+                fig.canvas.draw()
                 plt.show()
                 
                 params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[i]),np.sort(browser.line_matches['lines']),p0=[shift_est[i],stretch_est[i],quad_est[i],1e-8,1e-12,1e-12])
