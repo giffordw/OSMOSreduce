@@ -316,6 +316,7 @@ class LineBrowser:
             self.line_matches['peaks_w'][kj] = self.peaks_w[np.argsort(np.abs(self.wm[kj]-self.peaks_w))][0] #closest peak (in wavelength)
             self.line_matches['peaks_h'][kj] = self.peaks_h[np.argsort(np.abs(self.wm[kj]-self.peaks_w))][0] #closest peak (height)
         self.mindist_el, = np.where(self.peaks_w == self.line_matches['peaks_w'][self.j])
+        self.mindist_el = self.mindist_el[0]
         self.update_circle()
         self.fig.canvas.draw_idle()
 
@@ -328,6 +329,8 @@ class LineBrowser:
         self.selected_peak.set_ydata(self.line_matches['peaks_h'][self.j])
         self.selected.set_xdata(self.line_matches['lines'][self.j])
         self.selected_peak_line.set_xdata(self.line_matches['peaks_w'][self.j])
+        self.mindist_el, = np.where(self.peaks_w == self.line_matches['peaks_w'][self.j])
+        self.mindist_el = self.mindist_el[0]
         
         xlim = self.ax.xaxis.get_view_interval()
         ylim = self.ax.yaxis.get_view_interval()
@@ -374,6 +377,7 @@ class LineBrowser:
         self.line_matches['peaks_p'][self.j] = self.peaks_p[self.mindist_el]
         self.line_matches['peaks_w'][self.j] = self.peaks_w[self.mindist_el]
         self.line_matches['peaks_h'][self.j] = self.peaks_h[self.mindist_el]
+        print self.line_matches['peaks_p'][self.j]
         self.next_line()
         return
     
