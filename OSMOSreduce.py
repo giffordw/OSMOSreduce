@@ -445,7 +445,7 @@ Gal_dat['FINAL_SLIT_X_FLIP'] = 4064 - Gal_dat.FINAL_SLIT_X
 #Wavelength Calibration#
 ########################
 reassign = 'n'
-wave = np.zeros((len(Gal_dat),4064))
+#wave = np.zeros((len(Gal_dat),4064))
 if os.path.isfile(clus_id+'/'+clus_id+'_stretchshift.tab'):
     reassign = raw_input('Detected file with stretch and shift parameters for each spectra. Do you wish to use this (y) or remove and re-adjust (n)? ')
 if reassign == 'n':
@@ -499,10 +499,12 @@ if reassign == 'n':
             #Pick lines for initial parameter fit
             cal_states = {'Xe':True,'Ar':False,'HgNe':False,'Ne':False}
             fig,ax = plt.subplots(1)
+            
             #maximize window
             figManager = plt.get_current_fig_manager()
             figManager.window.showMaximized()
             plt.subplots_adjust(right=0.8,left=0.05,bottom=0.20)
+
             vlines = []
             for j in range(wm.size):
                 vlines.append(ax.axvline(wm[j],color='r',alpha=0.5))
@@ -530,18 +532,24 @@ if reassign == 'n':
             #states.on_clicked(browser.set_calib_lines)
             fig.canvas.draw()
             plt.show()
-                
+            
+            #fit 5th order polynomial to peak/line selections
             params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),np.sort(browser.line_matches['lines']),p0=[shift_est[ii],stretch_est[ii],quad_est[ii],1e-8,1e-12,1e-12])
             cube_est = cube_est + params[3]
             fourth_est = fourth_est + params[4]
             fifth_est = fifth_est + params[5]
-
-            wave[ii] = params[0]+params[1]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])+params[2]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2+params[3]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**3.0+params[4]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**4.0+params[5]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**5.0
-            flu = f_x - np.min(f_x)
+            
+            #make calibration and clip on lower anchor point. Apply to Flux as well
+            wave_model =  params[0]+params[1]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])+params[2]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2+params[3]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**3.0+params[4]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**4.0+params[5]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**5.0
+            sepctra[keys[ii]]['wave'] = wave_model
+            spectra[keys[ii]]['wave2'] = wave_model[p_x >= np.sort(browser.line_matches['peaks_p'])[0]]
+            spectra[keys[ii]]['gal_spec2'] = spectra[keys[ii]]['gal_spec'][p_x >= np.sort(browser.line_matches['peaks_p'])[0]]
+            
+            flu = f_x[p_x >= np.sort(browser.line_matches['peaks_p'])[0]] - np.min(f_x[p_x >= np.sort(browser.line_matches['peaks_p'])[0]])
             flu = flu[::-1]
             Flux[ii] = flu/signal.medfilt(flu,201)
             fifth[ii],fourth[ii],cube[ii],quad[ii],stretch[ii],shift[ii] = params[5],params[4],params[3],params[2],params[1],params[0]
-            plt.plot(wave[ii],Flux[ii]/np.max(Flux[ii]))
+            plt.plot(spectra[keys[ii]]['wave2'],Flux[ii]/np.max(Flux[ii]))
             plt.plot(wm,fm/np.max(fm),'ro')
             for j in range(browser.wm.size):
                 plt.axvline(browser.wm[j],color='r')
@@ -616,13 +624,16 @@ if reassign == 'n':
                     line_matches['peaks_p'].append(fxrpeak[np.argsort(np.abs(wm[j]-fxpeak))][0]) #closest peak (in pixels)
                     line_matches['peaks_w'].append(fxpeak[np.argsort(np.abs(wm[j]-fxpeak))][0]) #closest peak (in wavelength)
                     line_matches['peaks_h'].append(fypeak[np.argsort(np.abs(wm[j]-fxpeak))][0]) #closest peak (height)
-            
+                
+                #Pick lines for initial parameter fit
                 cal_states = {'Xe':True,'Ar':False,'HgNe':False,'Ne':False}
                 fig,ax = plt.subplots(1)
-                plt.subplots_adjust(right=0.8,left=0.05,bottom=0.20)
+                
                 #maximize window
                 figManager = plt.get_current_fig_manager()
                 figManager.window.showMaximized()
+                plt.subplots_adjust(right=0.8,left=0.05,bottom=0.20)
+
                 vlines = []
                 for j in range(wm.size):
                     vlines.append(ax.axvline(wm[j],color='r'))
@@ -652,17 +663,23 @@ if reassign == 'n':
                 fig.canvas.draw()
                 plt.show()
                 
+                #fit 5th order polynomial to peak/line selections
                 params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[i]),np.sort(browser.line_matches['lines']),p0=[shift_est[i],stretch_est[i],quad_est[i],1e-8,1e-12,1e-12])
                 cube_est[i] = params[3]
                 fourth_est[i] = params[4]
                 fifth_est[i] = params[5]
+                
+                #make calibration and clip on lower anchor point. Apply to Flux as well
+                wave_model = params[0]+params[1]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])+params[2]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**2+params[3]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**3.0+params[4]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**4.0+params[5]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**5.0
+                spectra[keys[i]]['wave'] = wave_model
+                spectra[keys[i]]['wave2'] = wave_model[p_x >= np.sort(browser.line_matches['peaks_p'])[0]]
+                spectra[keys[i]]['gal_spec2'] = spectra[keys[i]]['gal_spec'][p_x >= np.sort(browser.line_matches['peaks_p'])[0]]
 
-                wave[i] = params[0]+params[1]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])+params[2]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**2+params[3]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**3.0+params[4]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**4.0+params[5]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**5.0
-                flu = f_x - np.min(f_x)
+                flu = f_x[p_x >= np.sort(browser.line_matches['peaks_p'])[0]] - np.min(f_x[p_x >= np.sort(browser.line_matches['peaks_p'])[0]])
                 flu = flu[::-1]
                 Flux[i] = flu/signal.medfilt(flu,201)
                 fifth[i],fourth[i],cube[i],quad[i],stretch[i],shift[i] = params[5],params[4],params[3],params[2],params[1],params[0]
-                plt.plot(wave[i],Flux[i]/np.max(Flux[i]))
+                plt.plot(spectra[keys[i]]['wave2'],Flux[i]/np.max(Flux[i]))
                 plt.plot(wm,fm/np.max(fm),'ro')
                 for j in range(browser.wm.size):
                     plt.axvline(browser.wm[j],color='r')
@@ -685,13 +702,10 @@ if reassign == 'n':
         f.write(str(Gal_dat.SLIT_WIDTH[i])+'\t')
         f.write('\n')
     f.close()
+    pickle.dump(spectra,open(clus_id+'/'+clus_id+'_reduced_spectra_wavecal.pkl','wb'))
 else:
     xslit,yslit,shift,stretch,quad,cube,fourth,fifth,wd = np.loadtxt(clus_id+'/'+clus_id+'_stretchshift.tab',dtype='float',usecols=(0,1,2,3,4,5,6,7,8),unpack=True)
-    #FINAL_SLIT_X = np.append(FINAL_SLIT_X[0],xslit)
-    #FINAL_SLIT_Y = np.append(FINAL_SLIT_Y[0],yslit)
-    #SLIT_WIDTH = np.append(SLIT_WIDTH[0],wd)
-    for i in range(stretch.size):
-        wave[i] = fifth[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**5 + fourth[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**4 + cube[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**3 + quad[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i])**2 + stretch[i]*(np.arange(0,4064,1)-Gal_dat.FINAL_SLIT_X_FLIP[i]) + shift[i]
+    spectra = pickle.load(open(clus_id+'/'+clus_id+'_reduced_spectra_wavecal.pkl','rb'))
 
 #summed science slits + filtering to see spectra
 #Flux_science_old = np.array([np.sum(scifits_c2.data[Gal_dat.FINAL_SLIT_Y[i]-Gal_dat.SLIT_WIDTH[i]/2.0:Gal_dat.FINAL_SLIT_Y[i]+Gal_dat.SLIT_WIDTH[i]/2.0,:],axis=0)[::-1] for i in range(len(Gal_dat))])
@@ -699,7 +713,7 @@ else:
 Flux_science = []
 for i in range(len(Gal_dat)):
     try:
-        Flux_science.append(np.sum(spectra[keys[i]]['gal_spec'],axis=0)[::-1])
+        Flux_science.append(np.sum(spectra[keys[i]]['gal_spec2'],axis=0)[::-1])
     except KeyError:
         Flux_science.append(np.zeros(len(Flux_science[i-1])))
 Flux_science = np.array(Flux_science)
@@ -740,16 +754,9 @@ R = z_est()
 for k in range(len(Gal_dat)):
     F1 = fftpack.rfft(Flux_science[k])
     cut = F1.copy()
-    W = fftpack.rfftfreq(wave[k].size,d=wave[k][2001]-wave[k][2000])
+    W = fftpack.rfftfreq(spectra[keys[k]]['wave2'].size,d=spectra[keys[k]]['wave2'][2001]-spectra[keys[k]]['wave2'][2000])
     cut[np.where(W>0.15)] = 0
     Flux_science2 = fftpack.irfft(cut)
-    '''
-    plt.plot(wave[k],Flux_science2)
-    plt.plot(wave[k],Flux_science[k],c='g',alpha=0.5)
-    plt.xlim(3900,5000)
-    plt.show()
-    '''
-
     Flux_sc = Flux_science2 - signal.medfilt(Flux_science2,171)
 
     if Gal_dat.slit_type[k] == 'g' and Gal_dat.good_spectra[k] == 'y':
@@ -762,13 +769,13 @@ for k in range(len(Gal_dat)):
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 '+str(Gal_dat.SLIT_WIDTH[k])+') #color=green highlite=1}')
             '''
             ff = open(clus_id+'/1dspectra/gal_'+str(k)+'_spec.csv','w')
-            for jj in range(wave[k].size):
-                ff.write(str(wave[k][jj])+',')
+            for jj in range(spectra[keys[k]]['wave2'].size):
+                ff.write(str(spectra[keys[k]]['wave2'][jj])+',')
                 ff.write(str(Flux_science2[jj])+'\n')
             ff.close()
             '''
-            redshift_est[k],cor[k],ztest,corr_val,qualityval['Clear'][k] = R.redshift_estimate(early_type_wave,early_type_flux,wave[k],Flux_science2,gal_prior=None)
-            HSN[k],KSN[k],GSN[k] = sncalc(redshift_est[k],wave[k],Flux_sc)
+            redshift_est[k],cor[k],ztest,corr_val,qualityval['Clear'][k] = R.redshift_estimate(early_type_wave,early_type_flux,spectra[keys[k]]['wave2'],Flux_science2,gal_prior=None)
+            HSN[k],KSN[k],GSN[k] = sncalc(redshift_est[k],spectra[keys[k]]['wave2'],Flux_sc)
             SNavg[k] = np.average(np.array([HSN[k],KSN[k],GSN[k]]))
             SNHKmin[k] = np.min(np.array([HSN[k],KSN[k]]))
 
