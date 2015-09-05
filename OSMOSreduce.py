@@ -765,13 +765,6 @@ for k in range(len(Gal_dat)):
             Flux_sc = Flux_science2 - signal.medfilt(Flux_science2,171)
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[k])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 '+str(Gal_dat.SLIT_WIDTH[k])+') #color=green highlite=1}')
-            '''
-            ff = open(clus_id+'/1dspectra/gal_'+str(k)+'_spec.csv','w')
-            for jj in range(spectra[keys[k]]['wave2'].size):
-                ff.write(str(spectra[keys[k]]['wave2'][jj])+',')
-                ff.write(str(Flux_science2[jj])+'\n')
-            ff.close()
-            '''
             redshift_est[k],cor[k],ztest,corr_val,qualityval['Clear'][k] = R.redshift_estimate(early_type_wave,early_type_flux,spectra[keys[k]]['wave2'],Flux_science2,gal_prior=None)
             HSN[k],KSN[k],GSN[k] = sncalc(redshift_est[k],spectra[keys[k]]['wave2'],Flux_sc)
             SNavg[k] = np.average(np.array([HSN[k],KSN[k],GSN[k]]))
@@ -781,7 +774,7 @@ for k in range(len(Gal_dat)):
         redshift_est[k] = 0.0
         cor[k] = 0.0
 
-    if k in sdss_elem.astype('int'):
+    if k in sdss_elem.astype('int') and redshift_est[k] > 0:
         print 'Estimate: %.5f'%(redshift_est[k]), 'SDSS: %.5f'%(sdss_red.values[np.where(sdss_elem==k)][0])
     print 'z found for galaxy '+str(k+1)+' of '+str(len(Gal_dat))
     print ''
