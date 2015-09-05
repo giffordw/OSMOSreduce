@@ -377,7 +377,6 @@ class LineBrowser:
         self.line_matches['peaks_p'][self.j] = self.peaks_p[self.mindist_el]
         self.line_matches['peaks_w'][self.j] = self.peaks_w[self.mindist_el]
         self.line_matches['peaks_h'][self.j] = self.peaks_h[self.mindist_el]
-        print self.line_matches['peaks_p'][self.j]
         self.next_line()
         return
     

@@ -459,7 +459,6 @@ if reassign == 'n':
     stretch_est = -9.47e-9*(Gal_dat['FINAL_SLIT_X'] - 1800.0)**2 - 2.66e-9*(Gal_dat['FINAL_SLIT_Y'] - 2000)**2 + 0.7135
     quad_est = 8.12e-9*Gal_dat['FINAL_SLIT_X'] - 1.07e-6
     fifth_est,fourth_est,cube_est = np.zeros((3,len(Gal_dat)))
-    Flux = np.zeros((len(Gal_dat),4064))
     calib_data = arcfits_c.data
     p_x = np.arange(0,4064,1)
     ii = 0
@@ -541,15 +540,15 @@ if reassign == 'n':
             
             #make calibration and clip on lower anchor point. Apply to Flux as well
             wave_model =  params[0]+params[1]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])+params[2]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**2+params[3]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**3.0+params[4]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**4.0+params[5]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[ii])**5.0
-            sepctra[keys[ii]]['wave'] = wave_model
+            spectra[keys[ii]]['wave'] = wave_model
             spectra[keys[ii]]['wave2'] = wave_model[p_x >= np.sort(browser.line_matches['peaks_p'])[0]]
-            spectra[keys[ii]]['gal_spec2'] = spectra[keys[ii]]['gal_spec'][p_x >= np.sort(browser.line_matches['peaks_p'])[0]]
+            spectra[keys[ii]]['gal_spec2'] = ((np.array(spectra[keys[ii]]['gal_spec']).T[::-1])[p_x >= np.sort(browser.line_matches['peaks_p'])[0]]).T
             
-            flu = f_x[p_x >= np.sort(browser.line_matches['peaks_p'])[0]] - np.min(f_x[p_x >= np.sort(browser.line_matches['peaks_p'])[0]])
-            flu = flu[::-1]
-            Flux[ii] = flu/signal.medfilt(flu,201)
+            flu = f_x - np.min(f_x)
+            flu = flu[::-1][p_x >= np.sort(browser.line_matches['peaks_p'])[0]]
+            Flux = flu/signal.medfilt(flu,201)
             fifth[ii],fourth[ii],cube[ii],quad[ii],stretch[ii],shift[ii] = params[5],params[4],params[3],params[2],params[1],params[0]
-            plt.plot(spectra[keys[ii]]['wave2'],Flux[ii]/np.max(Flux[ii]))
+            plt.plot(spectra[keys[ii]]['wave2'],Flux/np.max(Flux[np.isfinite(Flux)]))
             plt.plot(wm,fm/np.max(fm),'ro')
             for j in range(browser.wm.size):
                 plt.axvline(browser.wm[j],color='r')
@@ -673,13 +672,13 @@ if reassign == 'n':
                 wave_model = params[0]+params[1]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])+params[2]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**2+params[3]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**3.0+params[4]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**4.0+params[5]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**5.0
                 spectra[keys[i]]['wave'] = wave_model
                 spectra[keys[i]]['wave2'] = wave_model[p_x >= np.sort(browser.line_matches['peaks_p'])[0]]
-                spectra[keys[i]]['gal_spec2'] = spectra[keys[i]]['gal_spec'][p_x >= np.sort(browser.line_matches['peaks_p'])[0]]
+                spectra[keys[i]]['gal_spec2'] = ((np.array(spectra[keys[i]]['gal_spec']).T[::-1])[p_x >= np.sort(browser.line_matches['peaks_p'])[0]]).T
 
                 flu = f_x[p_x >= np.sort(browser.line_matches['peaks_p'])[0]] - np.min(f_x[p_x >= np.sort(browser.line_matches['peaks_p'])[0]])
                 flu = flu[::-1]
-                Flux[i] = flu/signal.medfilt(flu,201)
+                Flux = flu/signal.medfilt(flu,201)
                 fifth[i],fourth[i],cube[i],quad[i],stretch[i],shift[i] = params[5],params[4],params[3],params[2],params[1],params[0]
-                plt.plot(spectra[keys[i]]['wave2'],Flux[i]/np.max(Flux[i]))
+                plt.plot(spectra[keys[i]]['wave2'],Flux/np.max(Flux))
                 plt.plot(wm,fm/np.max(fm),'ro')
                 for j in range(browser.wm.size):
                     plt.axvline(browser.wm[j],color='r')
@@ -713,7 +712,7 @@ else:
 Flux_science = []
 for i in range(len(Gal_dat)):
     try:
-        Flux_science.append(np.sum(spectra[keys[i]]['gal_spec2'],axis=0)[::-1])
+        Flux_science.append(np.sum(spectra[keys[i]]['gal_spec2'],axis=0))
     except KeyError:
         Flux_science.append(np.zeros(len(Flux_science[i-1])))
 Flux_science = np.array(Flux_science)
@@ -752,19 +751,18 @@ print 'Median SDSS redshift',median_sdss_redshift
 R = z_est()
 
 for k in range(len(Gal_dat)):
-    F1 = fftpack.rfft(Flux_science[k])
-    cut = F1.copy()
-    W = fftpack.rfftfreq(spectra[keys[k]]['wave2'].size,d=spectra[keys[k]]['wave2'][2001]-spectra[keys[k]]['wave2'][2000])
-    cut[np.where(W>0.15)] = 0
-    Flux_science2 = fftpack.irfft(cut)
-    Flux_sc = Flux_science2 - signal.medfilt(Flux_science2,171)
-
     if Gal_dat.slit_type[k] == 'g' and Gal_dat.good_spectra[k] == 'y':
         if sdss_check:
             if Gal_dat.spec_z[k] != 0.0: skipgal = False
             else: skipgal = True
         else: skipgal = False
         if not skipgal:
+            F1 = fftpack.rfft(Flux_science[k])
+            cut = F1.copy()
+            W = fftpack.rfftfreq(spectra[keys[k]]['wave2'].size,d=spectra[keys[k]]['wave2'][1001]-spectra[keys[k]]['wave2'][1000])
+            cut[np.where(W>0.15)] = 0
+            Flux_science2 = fftpack.irfft(cut)
+            Flux_sc = Flux_science2 - signal.medfilt(Flux_science2,171)
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[k])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 '+str(Gal_dat.SLIT_WIDTH[k])+') #color=green highlite=1}')
             '''
