@@ -302,7 +302,7 @@ class LineBrowser:
         #self.selected,  = ax.plot([xs[0]], [ys[0]], 'o', ms=12, alpha=0.4,color='yellow', visible=False)
         self.selected  = self.ax.axvline(self.line_matches['lines'][self.j],lw=3,alpha=0.5,color='red',ymin=0.5)
         self.selected_peak, = self.ax.plot(self.line_matches['peaks_w'][self.j],self.line_matches['peaks_h'][self.j],'o',mec='orange',markersize=8,alpha=0.7,mfc='None',mew=3,visible=True)
-        self.selected_peak_line = self.ax.axvline(self.line_matches['peaks_w'][self.j],color='cyan',lw=4,alpha=0.3,ymax=0.5,visible=True)
+        self.selected_peak_line = self.ax.axvline(self.line_matches['lines'][self.j],color='cyan',lw=4,alpha=0.3,ymax=0.5,visible=True)
         self.reset_lims()
 
     def slider_update(self,val):
@@ -318,7 +318,8 @@ class LineBrowser:
         self.mindist_el, = np.where(self.peaks_w == self.line_matches['peaks_w'][self.j])
         self.mindist_el = self.mindist_el[0]
         self.update_circle()
-        self.fig.canvas.draw_idle()
+        #self.fig.canvas.draw()
+        self.update_current()
 
     def update_current(self):
         if self.j >= len(self.line_matches['peaks_w']):
@@ -328,8 +329,11 @@ class LineBrowser:
         self.selected_peak.set_xdata(self.line_matches['peaks_w'][self.j])
         self.selected_peak.set_ydata(self.line_matches['peaks_h'][self.j])
         self.selected.set_xdata(self.line_matches['lines'][self.j])
-        self.selected_peak_line.set_xdata(self.line_matches['peaks_w'][self.j])
+        self.selected_peak_line.set_xdata(self.line_matches['lines'][self.j])
+        print self.peaks_w
+        print self.line_matches['peaks_w'][self.j]
         self.mindist_el, = np.where(self.peaks_w == self.line_matches['peaks_w'][self.j])
+        print self.mindist_el
         self.mindist_el = self.mindist_el[0]
         
         xlim = self.ax.xaxis.get_view_interval()
@@ -347,7 +351,7 @@ class LineBrowser:
     def onpress(self, event):
         if event.key not in ('n','m','j','b'): return
         if event.key=='n':
-            self.next_line()
+            self.replace()
         if event.key=='m':
             self.replace()
         if event.key=='j':
@@ -383,7 +387,8 @@ class LineBrowser:
     def back_line(self):
         if self.j >= 1:
             self.j -= 1
-            self.update_current()
+            self.slider_update(1.0)
+            #self.update_current()
         else: return
 
     def next_go(self,event):
