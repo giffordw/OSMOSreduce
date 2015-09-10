@@ -427,7 +427,6 @@ if reassign == 'n':
         d.set('regions delete all')
     print FINAL_SLIT_X
     np.savetxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',np.array(zip(FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH,good_spectra),dtype=[('float',float),('float2',float),('int',int),('str','|S1')]),delimiter='\t',fmt='%10.2f %10.2f %3d %s')
-    pprint.pprint(spectra,width=1)
     pickle.dump(spectra,open(clus_id+'/'+clus_id+'_reduced_spectra.pkl','wb'))
 else:
     FINAL_SLIT_X,FINAL_SLIT_Y,SLIT_WIDTH = np.loadtxt(clus_id+'/'+clus_id+'_slit_pos_qual.tab',dtype='float',usecols=(0,1,2),unpack=True)

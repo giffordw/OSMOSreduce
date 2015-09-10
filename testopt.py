@@ -330,10 +330,7 @@ class LineBrowser:
         self.selected_peak.set_ydata(self.line_matches['peaks_h'][self.j])
         self.selected.set_xdata(self.line_matches['lines'][self.j])
         self.selected_peak_line.set_xdata(self.line_matches['lines'][self.j])
-        print self.peaks_w
-        print self.line_matches['peaks_w'][self.j]
         self.mindist_el, = np.where(self.peaks_w == self.line_matches['peaks_w'][self.j])
-        print self.mindist_el
         self.mindist_el = self.mindist_el[0]
         
         xlim = self.ax.xaxis.get_view_interval()
