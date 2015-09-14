@@ -4,7 +4,7 @@ In the .oms file, the first and last RA/DEC represent a reference slit at the bo
 
 Please list the calibration lamp(s) used during your observations here
 '''
-cal_lamp = ['Xenon'] #'Xenon','Argon','HgNe','Neon'
+cal_lamp = ['Argon'] #'Xenon','Argon','HgNe','Neon'
 print 'Using calibration lamps: ', cal_lamp
 
 import numpy as np
@@ -662,10 +662,14 @@ if reassign == 'n':
                 plt.show()
                 
                 #fit 5th order polynomial to peak/line selections
-                params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[i]),np.sort(browser.line_matches['lines']),p0=[shift_est[i],stretch_est[i],quad_est[i],1e-8,1e-12,1e-12])
-                cube_est[i] = params[3]
-                fourth_est[i] = params[4]
-                fifth_est[i] = params[5]
+                try:
+                    params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[i]),np.sort(browser.line_matches['lines']),p0=[shift_est[i],stretch_est[i],quad_est[i],1e-8,1e-12,1e-12])
+                    cube_est[i] = params[3]
+                    fourth_est[i] = params[4]
+                    fifth_est[i] = params[5]
+                except TypeError:
+                    params = [shift_est[i],stretch_est[i],quad_est[i],cube_est[i-1],fourth_est[i-1],fifth_est[i-1]]
+
                 
                 #make calibration and clip on lower anchor point. Apply to Flux as well
                 wave_model = params[0]+params[1]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])+params[2]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**2+params[3]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**3.0+params[4]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**4.0+params[5]*(p_x-Gal_dat.FINAL_SLIT_X_FLIP[i])**5.0
@@ -765,7 +769,10 @@ for k in range(len(Gal_dat)):
             d.set('pan to 1150.0 '+str(Gal_dat.FINAL_SLIT_Y[k])+' physical')
             d.set('regions command {box(2000 '+str(Gal_dat.FINAL_SLIT_Y[k])+' 4500 '+str(Gal_dat.SLIT_WIDTH[k])+') #color=green highlite=1}')
             redshift_est[k],cor[k],ztest,corr_val,qualityval['Clear'][k] = R.redshift_estimate(early_type_wave,early_type_flux,spectra[keys[k]]['wave2'],Flux_science2,gal_prior=None)
-            HSN[k],KSN[k],GSN[k] = sncalc(redshift_est[k],spectra[keys[k]]['wave2'],Flux_sc)
+            try:
+                HSN[k],KSN[k],GSN[k] = sncalc(redshift_est[k],spectra[keys[k]]['wave2'],Flux_sc)
+            except ValueError:
+                HSN[k],KSN[k],GSN[k] = 0.0,0.0,0.0
             SNavg[k] = np.average(np.array([HSN[k],KSN[k],GSN[k]]))
             SNHKmin[k] = np.min(np.array([HSN[k],KSN[k]]))
 
