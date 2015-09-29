@@ -4,7 +4,7 @@ In the .oms file, the first and last RA/DEC represent a reference slit at the bo
 
 Please list the calibration lamp(s) used during your observations here
 '''
-cal_lamp = ['Argon'] #'Xenon','Argon','HgNe','Neon'
+cal_lamp = ['Xenon'] #'Xenon','Argon','HgNe','Neon'
 print 'Using calibration lamps: ', cal_lamp
 
 import numpy as np
@@ -131,7 +131,7 @@ def reduce_files(filetype):
             else:
                 print 'Reduced '+filetype+' files exist'
 
-filetypes = ['science','arcs','flats','offset_sky']
+filetypes = ['science','arcs','flats']
 for filetype in filetypes:
     reduce_files(filetype)
 
@@ -454,10 +454,11 @@ if reassign == 'n':
     
     #initialize polynomial arrays
     fifth,fourth,cube,quad,stretch,shift =  np.zeros((6,len(Gal_dat)))
-    shift_est = 3.96e-6*(Gal_dat['FINAL_SLIT_X'] - 2500.0)**2 + 3.86e-6*(Gal_dat['FINAL_SLIT_Y'] - 2000)**2 + 4471.37
-    stretch_est = -9.47e-9*(Gal_dat['FINAL_SLIT_X'] - 1800.0)**2 - 2.66e-9*(Gal_dat['FINAL_SLIT_Y'] - 2000)**2 + 0.7135
-    quad_est = 8.12e-9*Gal_dat['FINAL_SLIT_X'] - 1.07e-6
-    fifth_est,fourth_est,cube_est = np.zeros((3,len(Gal_dat)))
+    shift_est = 4.44e-6*(Gal_dat['FINAL_SLIT_X'] - 2500.0)**2 + 4.17e-6*(Gal_dat['FINAL_SLIT_Y'] - 2000)**2 + 4470.00
+    stretch_est = -9.04e-9*(Gal_dat['FINAL_SLIT_X'] - 1800.0)**2 - 2.87e-9*(Gal_dat['FINAL_SLIT_Y'] - 2000)**2 + 0.710
+    quad_est = 7.74e-9*(Gal_dat['FINAL_SLIT_X'] - 1800.0) + 3.61e-10*(Gal_dat['FINAL_SLIT_Y'] - 2000) + 0.0
+    cube_est = 1.52e-12*(Gal_dat['FINAL_SLIT_X'] - 1800.0) - 5.35e-13*(Gal_dat['FINAL_SLIT_Y'] - 2000) + 0.0
+    fifth_est,fourth_est = np.zeros((2,len(Gal_dat)))
     calib_data = arcfits_c.data
     p_x = np.arange(0,4064,1)
     ii = 0
@@ -717,7 +718,10 @@ for i in range(len(Gal_dat)):
     try:
         Flux_science.append(np.sum(spectra[keys[i]]['gal_spec2'],axis=0))
     except KeyError:
-        Flux_science.append(np.zeros(len(Flux_science[i-1])))
+        if i != 0:
+            Flux_science.append(np.zeros(len(Flux_science[i-1])))
+        else:
+            Flux_science.append(np.zeros(4064))
 Flux_science = np.array(Flux_science)
 
 #Add parameters to Dataframe
