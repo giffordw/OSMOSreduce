@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from astropy.io import fits as pyfits
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
+from matplotlib.widgets import  RectangleSelector
 import warnings
 import pdb
 
@@ -110,7 +111,7 @@ def identify_slits(pixels,flux,slit_y,good_detect=True):
     return startf,endf
 
 
-def slit_find(flux,science_flux,arc_flux):
+def slit_find(flux,science_flux,arc_flux,lower_lim,upper_lim):
 
     ##
     #Idenfity slit position as function of x
@@ -119,7 +120,8 @@ def slit_find(flux,science_flux,arc_flux):
     last = []
     pixels = np.arange(flux.shape[1])
     flux = np.log(flux)
-    plt.imshow(flux - chip_background(pixels,flux),aspect=25)
+    fig,ax = plt.subplots(1)
+    ax.imshow(flux - chip_background(pixels,flux),aspect=25)
     for i in range(200):
         flux2 = np.sum(flux[:,50+i*20:70+i*20],axis=1)
         pixels2 = np.arange(len(flux2))
@@ -135,29 +137,60 @@ def slit_find(flux,science_flux,arc_flux):
     last = np.ma.masked_where((last<35)|(last>=flux.shape[0]),last)
     first = np.array(first)
     first = np.ma.masked_where((first<=0)|(first>=flux.shape[0]-40),first)
-    plt.plot(xpix,first,'b')
-    plt.plot(xpix,last,'r')
+    ax.plot(xpix,first,'b')
+    ax.plot(xpix,last,'r')
+    
+    class FitQuad:
+        def __init__(self,ax,xpix,first):
+            self.startx,self.endx=0,0
+            self.upper, = ax.plot(xpix,np.zeros(xpix.size),'g',lw=2)
+            self.lower, = ax.plot(xpix,np.zeros(xpix.size),'g',lw=2)
+            self.first = first
+            self.xpix = xpix
+        
+        def fitting(self,lower_lim,upper_lim):
+            self.lower_lim=lower_lim
+            self.upper_lim = upper_lim
+            for i in range(3):
+                mask = np.ma.getmask(self.first[self.lower_lim:self.upper_lim])
+                xmask = np.ma.array(self.xpix[self.lower_lim:self.upper_lim],mask=mask)
+                popt2,pcov = curve_fit(_quadfit,xmask.compressed(),self.first[self.lower_lim:self.upper_lim].compressed(),p0=[1e-4,50])
+                self.first = np.ma.masked_where(np.abs(self.first - (popt2[0]*(self.xpix-2032)**2 + popt2[1])) >= 10,self.first)
+            self.popt_avg = [np.average([popt2[0]]),popt2[1]]
+            self.plot_fit()
+            return self.popt_avg
+
+        def onselect(self,eclick, erelease):
+            'eclick and erelease are matplotlib events at press and release'
+            #print ' startposition : (%f, %f)' % (eclick.xdata, eclick.ydata)
+            #print ' endposition   : (%f, %f)' % (erelease.xdata, erelease.ydata)
+            #print ' used button   : ', eclick.button
+            self.startx,self.endx=eclick.xdata,erelease.xdata
+            self.startpx = np.where(xpix>self.startx)[0][0]
+            self.endpx = np.where(xpix<self.endx)[0][-1]
+            self.fitting(lower_lim=self.startpx,upper_lim=self.endpx)
+
+        def plot_fit(self):
+            self.upper.set_ydata(_quadfit(self.xpix,*self.popt_avg))
+            self.lower.set_ydata(self.popt_avg[0]*(self.xpix-2032)**2 + self.popt_avg[1]+40)
+            plt.draw()
     
     
     ##
     #Fit quadratic
     ##
-    #popt,pcov = curve_fit(_quadfit,xpix[:100],last[:100],p0=[1e-4,50])
-    #popt2,pcov = curve_fit(_quadfit,xpix[:100],first[:100],p0=[1e-4,50])
-    for i in range(3):
-        #popt = np.ma.polyfit(xpix[:120]-2032,last[:120],2)
-        #popt2 = np.ma.polyfit(xpix[:120]-2032,first[:120],2)
-        mask = np.ma.getmask(first[:100])
-        xmask = np.ma.array(xpix[:100],mask=mask)
-        popt2,pcov = curve_fit(_quadfit,xmask.compressed(),first[:100].compressed(),p0=[1e-4,50])
-        first = np.ma.masked_where(np.abs(first - (popt2[0]*(xpix-2032)**2 + popt2[1])) >= 10,first)
-    popt_avg = [np.average([popt2[0]]),popt2[1]]
-    #plt.imshow(flux - chip_background(pixels,flux),aspect=25)
-    #plt.plot(xpix,first,'b')
-    #plt.plot(xpix,last,'r')
-    plt.plot(xpix,_quadfit(xpix,*popt_avg),'g',lw=2)
-    plt.plot(xpix,popt_avg[0]*(xpix-2032)**2 + popt_avg[1]+40,'g',lw=2)
+    Sel = FitQuad(ax,xpix,first)
+    #for i in range(3):
+    #    mask = np.ma.getmask(first[:100])
+    #    xmask = np.ma.array(xpix[:100],mask=mask)
+    #    popt2,pcov = curve_fit(_quadfit,xmask.compressed(),first[:100].compressed(),p0=[1e-4,50])
+    #    first = np.ma.masked_where(np.abs(first - (popt2[0]*(xpix-2032)**2 + popt2[1])) >= 10,first)
+    #popt_avg = [np.average([popt2[0]]),popt2[1]]
+    Sel.fitting(lower_lim,upper_lim)
+    xdat = RectangleSelector(ax, Sel.onselect, drawtype='box')
     plt.show()
+    popt_avg = Sel.popt_avg
+    lower_lim = Sel.lower_lim
     
     
     ##
@@ -207,7 +240,7 @@ def slit_find(flux,science_flux,arc_flux):
     plt.plot(np.arange(raw_gal.shape[1]),np.sum(raw_gal-sky_sub,axis=0)[::-1])
     plt.show()
 
-    return d2_spectra_s.T,d2_spectra_a.T,raw_gal-sky_sub,[lower_gal,upper_gal]
+    return d2_spectra_s.T,d2_spectra_a.T,raw_gal-sky_sub,[lower_gal,upper_gal],lower_lim,upper_lim
 
 if __name__ == '__main__':
     '''

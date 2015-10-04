@@ -4,7 +4,7 @@ In the .oms file, the first and last RA/DEC represent a reference slit at the bo
 
 Please list the calibration lamp(s) used during your observations here
 '''
-cal_lamp = ['Xenon'] #'Xenon','Argon','HgNe','Neon'
+cal_lamp = ['Xenon','Argon'] #'Xenon','Argon','HgNe','Neon'
 print 'Using calibration lamps: ', cal_lamp
 
 import numpy as np
@@ -356,6 +356,8 @@ if reassign == 'n':
     FINAL_SLIT_X = np.zeros(len(Gal_dat))
     FINAL_SLIT_Y = np.zeros(len(Gal_dat))
     SLIT_WIDTH = np.zeros(len(Gal_dat))
+    lower_lim = 0.0
+    upper_lim = 100.0
     spectra = {}
     print 'If needed, move region box to desired location. To increase the size, drag on corners'
     for i in range(SLIT_WIDTH.size):
@@ -391,7 +393,7 @@ if reassign == 'n':
                             #Sky subtract code
                             ##
                             try:
-                                science_spec,arc_spec,gal_spec,gal_cuts = slit_find(flatfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],scifits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],arcfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:])
+                                science_spec,arc_spec,gal_spec,gal_cuts,lower_lim,upper_lim = slit_find(flatfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],scifits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],arcfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],lower_lim,upper_lim)
                                 spectra[keys[i]] = {'science_spec':science_spec,'arc_spec':arc_spec,'gal_spec':gal_spec,'gal_cuts':gal_cuts}
 
                                 print 'Is this spectra good (y) or bad (n)?'
@@ -454,10 +456,10 @@ if reassign == 'n':
     
     #initialize polynomial arrays
     fifth,fourth,cube,quad,stretch,shift =  np.zeros((6,len(Gal_dat)))
-    shift_est = 4.44e-6*(Gal_dat['FINAL_SLIT_X'] - 2500.0)**2 + 4.17e-6*(Gal_dat['FINAL_SLIT_Y'] - 2000)**2 + 4470.00
-    stretch_est = -9.04e-9*(Gal_dat['FINAL_SLIT_X'] - 1800.0)**2 - 2.87e-9*(Gal_dat['FINAL_SLIT_Y'] - 2000)**2 + 0.710
-    quad_est = 7.74e-9*(Gal_dat['FINAL_SLIT_X'] - 1800.0) + 3.61e-10*(Gal_dat['FINAL_SLIT_Y'] - 2000) + 0.0
-    cube_est = 1.52e-12*(Gal_dat['FINAL_SLIT_X'] - 1800.0) - 5.35e-13*(Gal_dat['FINAL_SLIT_Y'] - 2000) + 0.0
+    shift_est = 4.71e-6*(Gal_dat['FINAL_SLIT_X'] - 2500.0)**2 + 4.30e-6*(Gal_dat['FINAL_SLIT_Y'] - 2000)**2 + 4469.72
+    stretch_est = -9.75e-9*(Gal_dat['FINAL_SLIT_X'] - 1800.0)**2 - 2.84e-9*(Gal_dat['FINAL_SLIT_Y'] - 2000)**2 + 0.7139
+    quad_est = 8.43e-9*(Gal_dat['FINAL_SLIT_X'] - 1800.0) + 1.55e-10*(Gal_dat['FINAL_SLIT_Y'] - 2000) + 1.3403e-5
+    cube_est = 7.76e-13*(Gal_dat['FINAL_SLIT_X'] - 1800.0) + 4.23e-15*(Gal_dat['FINAL_SLIT_Y'] - 2000) - 5.96e-9
     fifth_est,fourth_est = np.zeros((2,len(Gal_dat)))
     calib_data = arcfits_c.data
     p_x = np.arange(0,4064,1)
@@ -533,8 +535,8 @@ if reassign == 'n':
             plt.show()
             
             #fit 5th order polynomial to peak/line selections
-            params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),np.sort(browser.line_matches['lines']),p0=[shift_est[ii],stretch_est[ii],quad_est[ii],1e-8,1e-12,1e-12])
-            cube_est = cube_est + params[3]
+            params,pcov = curve_fit(polyfour,(np.sort(browser.line_matches['peaks_p'])-Gal_dat.FINAL_SLIT_X_FLIP[ii]),np.sort(browser.line_matches['lines']),p0=[shift_est[ii],stretch_est[ii],quad_est[ii],cube_est[ii],1e-12,1e-12])
+            #cube_est = cube_est + params[3]
             fourth_est = fourth_est + params[4]
             fifth_est = fifth_est + params[5]
             
