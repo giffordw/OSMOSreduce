@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from matplotlib.widgets import RadioButtons, Button, CheckButtons
 import scipy.signal as signal
-from ds9 import *
+from pyds9 import *
 import sys
 import re
 import subprocess
@@ -49,7 +49,7 @@ def getch():
     return ch
 
 def filter_image(img):
-    img_sm = signal.medfilt(img,5)
+    img_sm = signal.medfilt(np.float64(img),5)
     sigma = 2.0 
     bad = np.abs(img-img_sm) / sigma > 8.0
     img_cr = img.copy()
@@ -143,6 +143,7 @@ for file in os.listdir('./'+clus_id+'/science/'): #search and import all science
         sciencefiles = np.append(sciencefiles,file)
         scifits = pyfits.open(clus_id+'/science/'+file)
         hdulists_science = np.append(hdulists_science,scifits)
+print sciencefiles
 science_file = sciencefiles[0]
 hdulist_science = pyfits.open(clus_id+'/science/'+science_file)
 naxis1 = hdulist_science[0].header['NAXIS1']
@@ -305,7 +306,7 @@ if redo == 'n':
         os.remove(clus_id+'/science/'+clus_id+'_science.cr.fits')
     except: pass
     scifits_c = copy.copy(hdulists_science[0]) #copy I will use to hold the smoothed and added results
-    scifits_c.data *= 0.0
+    scifits_c.data = np.multiply(0.0,scifits_c.data, casting="unsafe")
     print 'SCIENCE REDUCTION'
     for scifits in hdulists_science:
         filt = filter_image(scifits.data)
@@ -337,7 +338,7 @@ if redo == 'n':
         os.remove(clus_id+'/arcs/'+clus_id+'_arc.cr.fits')
     except: pass
     arcfits_c = copy.copy(hdulists_arc[0]) #copy I will use to hold the smoothed and added results
-    arcfits_c.data *= 0.0
+    arcfits_c.data = np.multiply(arcfits_c.data,0.0,casting="unsafe")
     for arcfits in hdulists_arc:
         filt = arcfits.data#filter_image(arcfits.data)
         arcfits_c.data += filt + np.abs(np.nanmin(filt))
@@ -356,15 +357,15 @@ if reassign == 'n':
     FINAL_SLIT_X = np.zeros(len(Gal_dat))
     FINAL_SLIT_Y = np.zeros(len(Gal_dat))
     SLIT_WIDTH = np.zeros(len(Gal_dat))
-    lower_lim = 0.0
-    upper_lim = 100.0
+    lower_lim = int(0.0)
+    upper_lim = int(100.0)
     spectra = {}
     print 'If needed, move region box to desired location. To increase the size, drag on corners'
     for i in range(SLIT_WIDTH.size):
         print 'SLIT ',i
         d.set('pan to 1150.0 '+str(Gal_dat.SLIT_Y[i])+' physical')
         print 'Galaxy at ',Gal_dat.RA[i],Gal_dat.DEC[i]
-        d.set('regions command {box(2000 '+str(Gal_dat.SLIT_Y[i])+' 4500 85) #color=green highlite=1}')
+        d.set('regions command {box(2000 '+str(Gal_dat.SLIT_Y[i])+' 4300 65) #color=green highlite=1}')
         #raw_input('Once done: hit ENTER')
         if Gal_dat.slit_type[i] == 'g':
             if sdss_check:
@@ -388,12 +389,20 @@ if reassign == 'n':
                             FINAL_SLIT_X[i] = Gal_dat.SLIT_X[i]
                             FINAL_SLIT_Y[i] = newpos.group(1)
                             SLIT_WIDTH[i] = newpos.group(2)
-
+                            print  FINAL_SLIT_X[i],  FINAL_SLIT_Y[i],  SLIT_WIDTH[i]
                             ##
                             #Sky subtract code
                             ##
                             try:
-                                science_spec,arc_spec,gal_spec,gal_cuts,lower_lim,upper_lim = slit_find(flatfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],scifits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],arcfits_c.data[FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0:FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0,:],lower_lim,upper_lim)
+                                istart = int(FINAL_SLIT_Y[i]-SLIT_WIDTH[i]/2.0)
+                                iend = int(FINAL_SLIT_Y[i]+SLIT_WIDTH[i]/2.0)
+                                result = slit_find(flatfits_c.data[istart:iend,:],scifits_c.data[istart:iend,:],arcfits_c.data[istart:iend,:],lower_lim,upper_lim)
+                                science_spec = result[0]
+                                arc_spec = result[1]
+                                gal_spec = result[2]
+                                gal_cuts = result[3]
+                                lower_lim = result[4]
+                                upper_lim = result[5]
                                 spectra[keys[i]] = {'science_spec':science_spec,'arc_spec':arc_spec,'gal_spec':gal_spec,'gal_cuts':gal_cuts}
 
                                 print 'Is this spectra good (y) or bad (n)?'
@@ -486,7 +495,8 @@ if reassign == 'n':
             fxrpeak = p_x[peaks] #peaks in pixels
             fypeak = fydat[peaks] #peaks heights (for noise)
             fyrpeak = fyreal[peaks] #peak heights
-            noise = np.std(np.sort(fydat)[:np.round(fydat.size*0.5)]) #noise level
+            here = int(np.round(fydat.size*0.5))
+            noise = np.std(np.sort(fydat)[:here]) #noise level
             peaks = peaks[0][fypeak>noise]
             fxpeak = fxpeak[fypeak>noise] #significant peaks in wavelength
             fxrpeak = fxrpeak[fypeak>noise] #significant peaks in pixels
@@ -615,7 +625,8 @@ if reassign == 'n':
                 fxrpeak = p_x[peaks] #peaks in pixels
                 fypeak = fydat[peaks] #peaks heights (for noise)
                 fyrpeak = fyreal[peaks] #peak heights
-                noise = np.std(np.sort(fydat)[:np.round(fydat.size*0.5)]) #noise level
+                here = int(np.round(fydat.size*0.5))
+                noise = np.std(np.sort(fydat)[:here]) #noise level
                 peaks = peaks[0][fypeak>noise]
                 fxpeak = fxpeak[fypeak>noise] #significant peaks in wavelength
                 fxrpeak = fxrpeak[fypeak>noise] #significant peaks in pixels
